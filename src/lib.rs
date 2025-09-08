@@ -1,3 +1,6 @@
+mod component;
+mod widget;
+
 macro_rules! stx {
     (
         <$($arg:tt),*>
