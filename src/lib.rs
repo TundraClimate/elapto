@@ -1,9 +1,12 @@
 mod component;
 mod widget;
 
-use std::hash::Hash;
+use crate::{
+    component::{Component, KeyGen},
+    widget::Widget,
+};
 
-fn make_component<T: Hash>() -> component::Component<T> {
+fn make_component<T: KeyGen + Widget>() -> Component<T> {
     unimplemented!()
 }
 

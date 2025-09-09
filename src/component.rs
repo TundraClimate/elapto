@@ -1,7 +1,8 @@
+use crate::widget::Widget;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-pub struct Component<T: KeyGen> {
-    t: T,
+pub struct Component<T: KeyGen + Widget> {
+    widget: T,
 }
 
 pub trait KeyGen {
@@ -23,9 +24,9 @@ where
 
 impl<T> KeyGen for Component<T>
 where
-    T: KeyGen,
+    T: KeyGen + Widget,
 {
     fn gen_key(&self) -> u64 {
-        self.t.gen_key()
+        self.widget.gen_key()
     }
 }
