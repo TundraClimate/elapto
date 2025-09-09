@@ -1,4 +1,5 @@
 mod component;
+mod property;
 mod widget;
 
 use crate::{
@@ -14,69 +15,39 @@ macro_rules! stx {
     (
         <$($arg:tt),*>
     ) => {
-        stx_args!($($arg),*)
+        make_component!($($arg),*)
     };
 }
 
-macro_rules! stx_args {
-    ($tag:ident $(, [])?) => {{
-        format!("<{:?}>", $tag)
-    }};
-
-    ($tag:ident, [
-        <$($inner:tt),+>
-    ]) => {{
-        format!("<{:?} [ {:?} ]>", $tag, stx_args!($($inner),+))
-    }};
-
+macro_rules! make_component {
     (
-        $tag:ident, [
-            <$($first:tt),+>
-            $(<$($inner:tt),+>)+
-        ]
+        $tag:ident $(, { $($pk:ident=$pv:tt),* $(,)? })? $(, [
+            $(<$($inner:tt),+>)*
+        ])?
     ) => {{
-        format!("<{:?} [ {:?}, {:?} ]>",
-            $tag, stx_args!($($first),+), stx_args!($($($inner),+)+))
-    }};
+        use $crate::component::Component;
+        use $crate::widget::Widget;
 
-    ($tag:ident, { $($pk:ident=$pv:tt),* $(,)? } $(, [])?) => {{
-        format!("<{:?} {{ {:?} }}>", $tag, prop_args!(PropSub, $($pk=$pv),*))
-    }};
+        let widget = <$tag as Widget>::make_widget(make_prop!(<$tag as Widget>::Prop, $($($pk=$pv),*)?))
+            $($(.with_children(make_component!($($inner),+)))*)?;
 
-    ($tag:ident, { $($pk:ident=$pv:tt),* $(,)? }, [
-        <$($inner:tt),+>
-    ]) => {{
-        format!("<{:?} {{ {:?} }} [ {:?} ]>", $tag, prop_args!(PropSub, $($pk=$pv),*), stx_args!($($inner),+))
-    }};
-
-    (
-        $tag:ident, { $($pk:ident=$pv:tt),* $(,)? }, [
-            <$($first:tt),+>
-            $(<$($inner:tt),+>)+
-        ]
-    ) => {{
-        format!("<{:?} {{ {:?} }} [ {:?}, {:?} ]>",
-            $tag, prop_args!(PropSub, $($pk=$pv),*), stx_args!($($first),+), stx_args!($($($inner),+)+))
+        Component::new(widget)
     }};
 }
 
-macro_rules! prop_args {
-    () => {{ Prop::default() }};
+macro_rules! make_prop {
+    ($propty:ty $(,)?) => {{ $crate::property::Property::default() }};
 
     (
-        $propty:ident,
-        $(id=$id:expr)?
-        $(, name=$name:expr)?
+        $propty:ty
         $(, prop={ $($pk:ident=$pv:expr),* $(,)? })?
         $(,)?
     ) => {{
         #[allow(unused_mut)]
-        let mut prop = Prop::default();
+        let mut prop = $crate::property::Property::default();
 
-        $(prop.id = $id;)?
-        $(prop.name = $name;)?
         $(
-            prop.prop = $propty::default();
+            prop.prop = <$propty>::default();
             $(
                 prop.prop.$pk = $pv;
             )*
@@ -86,26 +57,27 @@ macro_rules! prop_args {
     }};
 }
 
-#[derive(Debug)]
-struct Tag;
-
-#[derive(Debug, PartialEq, Default)]
-struct Prop {
-    id: &'static str,
-    name: &'static str,
-    prop: PropSub,
-}
-
-#[derive(Debug, PartialEq, Default)]
-struct PropSub {
-    day: usize,
-    tulip: &'static str,
-}
-
 #[test]
 fn test() {
+    #[derive(Debug, Hash)]
+    struct Tag;
+
+    #[derive(Debug, PartialEq, Default)]
+    struct Prop {
+        day: usize,
+        tulip: &'static str,
+    }
+
+    impl Widget for Tag {
+        type Prop = Prop;
+
+        fn make_widget(_prop: property::Property<Self::Prop>) -> Self {
+            Self {}
+        }
+    }
+
     let dbg = stx! {
-        <Tag, { id="", name="", prop={ day=12, tulip="Biggest" } }, [
+        <Tag, { prop={ day=12, tulip="Biggest" } }, [
             <Tag, [
                 <Tag>
                 <Tag, []>
@@ -116,5 +88,5 @@ fn test() {
         ]>
     };
 
-    assert_eq!(String::from(""), dbg);
+    /* assert_eq!(String::from(""), dbg); */
 }

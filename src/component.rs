@@ -5,6 +5,12 @@ pub struct Component<T: KeyGen + Widget> {
     widget: T,
 }
 
+impl<T: KeyGen + Widget> Component<T> {
+    pub fn new(widget: T) -> Self {
+        Self { widget }
+    }
+}
+
 pub trait KeyGen {
     fn gen_key(&self) -> u64;
 }
