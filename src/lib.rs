@@ -1,6 +1,12 @@
 mod component;
 mod widget;
 
+use std::hash::Hash;
+
+fn make_component<T: Hash>() -> component::Component<T> {
+    unimplemented!()
+}
+
 macro_rules! stx {
     (
         <$($arg:tt),*>
