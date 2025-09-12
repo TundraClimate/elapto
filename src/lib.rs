@@ -1,14 +1,57 @@
-mod component;
-mod property;
-mod widget;
+use std::hash::{DefaultHasher, Hash, Hasher};
 
-use crate::{
-    component::{Component, KeyGen},
-    widget::Widget,
-};
+#[derive(Default)]
+struct Property<T> {
+    pub prop: T,
+}
 
-fn make_component<T: KeyGen + Widget>() -> Component<T> {
-    unimplemented!()
+trait Widget {
+    type Prop: Default;
+
+    fn make_widget(prop: Property<Self::Prop>) -> Self;
+
+    fn with_children<T: Widget + KeyGen>(self, _child: Component<T>) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+}
+
+struct Component<T: KeyGen + Widget> {
+    widget: T,
+}
+
+impl<T: KeyGen + Widget> Component<T> {
+    pub fn new(widget: T) -> Self {
+        Self { widget }
+    }
+}
+
+trait KeyGen {
+    fn gen_key(&self) -> u64;
+}
+
+impl<T> KeyGen for T
+where
+    T: Hash,
+{
+    fn gen_key(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+
+        self.hash(&mut hasher);
+
+        hasher.finish()
+    }
+}
+
+impl<T> KeyGen for Component<T>
+where
+    T: KeyGen + Widget,
+{
+    fn gen_key(&self) -> u64 {
+        self.widget.gen_key()
+    }
 }
 
 macro_rules! stx {
@@ -25,8 +68,8 @@ macro_rules! make_component {
             $(<$($inner:tt),+>)*
         ])?
     ) => {{
-        use $crate::component::Component;
-        use $crate::widget::Widget;
+        use $crate::Component;
+        use $crate::Widget;
 
         let widget = <$tag as Widget>::make_widget(make_prop!(<$tag as Widget>::Prop, $($($pk=$pv),*)?))
             $($(.with_children(make_component!($($inner),+)))*)?;
@@ -36,7 +79,7 @@ macro_rules! make_component {
 }
 
 macro_rules! make_prop {
-    ($propty:ty $(,)?) => {{ $crate::property::Property::default() }};
+    ($propty:ty $(,)?) => {{ $crate::Property::default() }};
 
     (
         $propty:ty
@@ -44,7 +87,7 @@ macro_rules! make_prop {
         $(,)?
     ) => {{
         #[allow(unused_mut)]
-        let mut prop = $crate::property::Property::default();
+        let mut prop = $crate::Property::default();
 
         $(
             prop.prop = <$propty>::default();
@@ -71,7 +114,7 @@ fn test() {
     impl Widget for Tag {
         type Prop = Prop;
 
-        fn make_widget(_prop: property::Property<Self::Prop>) -> Self {
+        fn make_widget(_prop: Property<Self::Prop>) -> Self {
             Self {}
         }
     }
