@@ -38,4 +38,38 @@ impl<W: Widget> WidgetCore for WidgetWrapper<W> {
     }
 }
 
-struct Component {}
+struct Component {
+    widget: Box<dyn WidgetCore>,
+    children: Vec<Component>,
+}
+
+impl Component {
+    fn new<W: Widget>(widget: W) -> Self {
+        Self {
+            widget: Box::new(WidgetWrapper::new(widget)),
+            children: vec![],
+        }
+    }
+
+    fn with_children(mut self, children: Component) -> Self {
+        self.children.push(children);
+
+        self
+    }
+
+    fn render(&self) -> Component {
+        self.widget.render_with()
+    }
+}
+
+fn make_component<W, F>(setup: F) -> Component
+where
+    W: Widget,
+    F: FnOnce(&mut W::Prop),
+{
+    let mut prop = W::Prop::default();
+
+    setup(&mut prop);
+
+    Component::new(W::make(prop))
+}
