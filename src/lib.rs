@@ -63,6 +63,13 @@ pub struct Component {
     children: Vec<Component>,
 }
 
+impl Hash for Component {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.widget.key().hash(state);
+        self.children.iter().for_each(|c| c.hash(state))
+    }
+}
+
 impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Component")
