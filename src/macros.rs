@@ -23,6 +23,7 @@ macro_rules! make_component {
 fn test() {
     use crate::Widget;
 
+    #[derive(Hash)]
     struct Paragraph {
         text: String,
     }

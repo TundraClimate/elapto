@@ -2,11 +2,10 @@ mod macros;
 
 use std::any;
 use std::fmt::Debug;
+use std::hash::{DefaultHasher, Hash, Hasher};
 
-pub trait Widget: 'static + Send + Sync {
+pub trait Widget: 'static + Send + Sync + Hash {
     type Prop: Default + Send + Sync + Debug + 'static;
-
-    fn make(prop: Self::Prop) -> Self;
 
     #[allow(unused_mut)]
     fn with_children(mut self, _child: Component) -> Self
@@ -16,12 +15,23 @@ pub trait Widget: 'static + Send + Sync {
         self
     }
 
+    fn key(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+
+        self.hash(&mut hasher);
+
+        hasher.finish()
+    }
+
+    fn make(prop: Self::Prop) -> Self;
+
     fn render(&self) -> Component;
 }
 
 trait WidgetCore: Send + Sync {
     fn render_with(&self) -> Component;
     fn type_name(&self) -> &'static str;
+    fn key(&self) -> u64;
 }
 
 struct WidgetWrapper<W: Widget> {
@@ -42,6 +52,10 @@ impl<W: Widget> WidgetCore for WidgetWrapper<W> {
     fn type_name(&self) -> &'static str {
         any::type_name::<W>()
     }
+
+    fn key(&self) -> u64 {
+        self.inner.key()
+    }
 }
 
 pub struct Component {
@@ -53,6 +67,7 @@ impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Component")
             .field("type", &self.widget.type_name())
+            .field("key", &self.widget.key())
             .field("children", &format!("{:?}", &self.children))
             .finish()
     }
@@ -61,6 +76,7 @@ impl Debug for Component {
 impl PartialEq for Component {
     fn eq(&self, other: &Self) -> bool {
         self.widget.type_name() == other.widget.type_name()
+            && self.widget.key() == other.widget.key()
             && self.children.len() == other.children.len()
             && self
                 .children
@@ -69,6 +85,8 @@ impl PartialEq for Component {
                 .all(|(a, b)| a == b)
     }
 }
+
+impl Eq for Component {}
 
 impl Component {
     fn new<W: Widget>(widget: W) -> Self {
