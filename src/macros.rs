@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! stx {
+macro_rules! mk {
     (
         <$($arg:tt),*>
     ) => {
@@ -13,34 +13,39 @@ macro_rules! make_component {
             $(<$($inner:tt),+>)*
         ])?
     ) => {{
-        use $crate::Component;
-        use $crate::Widget;
-
-        let widget = <$tag as Widget>::make_widget(make_prop!(<$tag as Widget>::Prop, $($($pk=$pv),*)?))
-            $($(.with_children(make_component!($($inner),+)))*)?;
-
-        Component::new(widget)
+        #[allow(unused_braces)]
+        $crate::make_component::<$tag, _>(|_p| { $($(_p.$pk = $pv);*)? })
+            $($(.with_children(make_component!($($inner),+)))*)?
     }};
 }
 
-macro_rules! make_prop {
-    ($propty:ty $(,)?) => {{ $crate::Property::default() }};
+#[test]
+fn test() {
+    use crate::Widget;
 
-    (
-        $propty:ty
-        $(, prop={ $($pk:ident=$pv:expr),* $(,)? })?
-        $(,)?
-    ) => {{
-        #[allow(unused_mut)]
-        let mut prop = $crate::Property::default();
+    struct Paragraph {
+        text: String,
+    }
 
-        $(
-            prop.prop = <$propty>::default();
-            $(
-                prop.prop.$pk = $pv;
-            )*
-        )?
+    #[derive(Default, Debug)]
+    struct ParagraphProp {
+        text: String,
+    }
 
-        prop
-    }};
+    impl Widget for Paragraph {
+        type Prop = ParagraphProp;
+
+        fn make(prop: Self::Prop) -> Self {
+            Self { text: prop.text }
+        }
+
+        fn render(&self) -> crate::Component {
+            unimplemented!()
+        }
+    }
+
+    let component1 = mk!(<Paragraph, { text={"Hi, World!".to_string()} }>);
+    let component2 = mk!(<Paragraph>);
+
+    assert_eq!(component1, component2);
 }
