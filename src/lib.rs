@@ -3,7 +3,7 @@ mod macros;
 use std::any;
 use std::fmt::Debug;
 
-trait Widget: 'static + Send + Sync {
+pub trait Widget: 'static + Send + Sync {
     type Prop: Default + Send + Sync + Debug + 'static;
 
     fn make(prop: Self::Prop) -> Self;
@@ -44,7 +44,7 @@ impl<W: Widget> WidgetCore for WidgetWrapper<W> {
     }
 }
 
-struct Component {
+pub struct Component {
     widget: Box<dyn WidgetCore>,
     children: Vec<Component>,
 }
@@ -55,6 +55,18 @@ impl Debug for Component {
             .field("type", &self.widget.type_name())
             .field("children", &format!("{:?}", &self.children))
             .finish()
+    }
+}
+
+impl PartialEq for Component {
+    fn eq(&self, other: &Self) -> bool {
+        self.widget.type_name() == other.widget.type_name()
+            && self.children.len() == other.children.len()
+            && self
+                .children
+                .iter()
+                .zip(other.children.iter())
+                .all(|(a, b)| a == b)
     }
 }
 
@@ -77,7 +89,7 @@ impl Component {
     }
 }
 
-fn make_component<W, F>(setup: F) -> Component
+pub fn make_component<W, F>(setup: F) -> Component
 where
     W: Widget,
     F: FnOnce(&mut W::Prop),
