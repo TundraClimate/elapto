@@ -4,8 +4,14 @@ use std::any;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+pub type Identity = &'static str;
+
+pub trait WidgetProp: Default + Send + Sync + 'static {
+    fn id(&self) -> Identity;
+}
+
 pub trait Widget: 'static + Send + Sync + Hash {
-    type Prop: Default + Send + Sync + Debug + 'static;
+    type Prop: WidgetProp;
 
     #[allow(unused_mut)]
     fn with_children(mut self, _child: Component) -> Self

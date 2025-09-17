@@ -19,6 +19,27 @@ macro_rules! make_component {
     }};
 }
 
+macro_rules! prop {
+    (
+        $(#[$attr:meta])?
+        $v:vis struct $pname:ident {
+            $($ivis:vis $inner_id:ident : $inner_ty:ty),* $(,)?
+        }
+    ) => {
+        $(#[$attr])?
+        $v struct $pname {
+            $v id: $crate::Identity,
+            $($ivis $inner_id: $inner_ty),*
+        }
+
+        impl $crate::WidgetProp for $pname {
+            fn id(&self) -> $crate::Identity {
+                self.id
+            }
+        }
+    };
+}
+
 #[test]
 fn test() {
     use crate::Widget;
@@ -28,9 +49,11 @@ fn test() {
         text: String,
     }
 
-    #[derive(Default, Debug)]
-    struct ParagraphProp {
-        text: String,
+    prop! {
+        #[derive(Default)]
+        struct ParagraphProp {
+            text: String,
+        }
     }
 
     impl Widget for Paragraph {
@@ -45,7 +68,7 @@ fn test() {
         }
     }
 
-    let component1 = mk!(<Paragraph, { text={"Hi, World!".to_string()} }>);
+    let component1 = mk!(<Paragraph, { text={"Hi, World!".to_string()}, id="Id" }>);
     let component2 = mk!(<Paragraph>);
 
     assert_eq!(component1, component2);
