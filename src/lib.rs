@@ -1,4 +1,5 @@
 mod macros;
+mod tui;
 
 use std::any;
 use std::fmt::Debug;
