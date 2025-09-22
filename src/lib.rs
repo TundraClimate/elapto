@@ -14,11 +14,11 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub type Identity = &'static str;
 
-pub trait WidgetProp: Default + Send + Sync + 'static {
+pub trait WidgetProp: Default {
     fn id(&self) -> Identity;
 }
 
-pub trait Widget: 'static + Send + Sync + Hash {
+pub trait Widget: Hash {
     type Prop: WidgetProp;
 
     #[allow(unused_mut)]
@@ -58,7 +58,7 @@ impl<W: Widget> WidgetWrapper<W> {
     }
 }
 
-impl<W: Widget> WidgetCore for WidgetWrapper<W> {
+impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
     fn render_with(&self) -> Component {
         self.inner.render()
     }
@@ -110,7 +110,10 @@ impl PartialEq for Component {
 impl Eq for Component {}
 
 impl Component {
-    fn new<W: Widget>(widget: W) -> Self {
+    fn new<W>(widget: W) -> Self
+    where
+        W: Widget + Send + Sync + 'static,
+    {
         Self {
             widget: Box::new(WidgetWrapper::new(widget)),
             children: vec![],
@@ -130,7 +133,7 @@ impl Component {
 
 pub fn make_component<W, F>(setup: F) -> Component
 where
-    W: Widget,
+    W: Widget + Send + Sync + 'static,
     F: FnOnce(&mut W::Prop),
 {
     let mut prop = W::Prop::default();
