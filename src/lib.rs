@@ -75,7 +75,7 @@ pub trait Widget: Hash {
     /// impl Widget for FooWidget {
     ///     /* Other impls */
     ///
-    ///     fn render(&self, children: &[Component]) -> Self {
+    ///     fn render(&self, _children: &[Component]) -> Component {
     ///         // TODO: impl render
     ///     }
     /// }
@@ -221,7 +221,7 @@ impl Component {
 /// impl Widget for FooWidget {
 ///     /* Other impls */
 ///
-///     fn render(&self, _children: &[Component]) -> elapto::Component {
+///     fn render(&self, _children: &[elapto::Component]) -> elapto::Component {
 ///         elapto::make_component::<, _>(|p| {
 ///             /* Edit property */
 ///         }, vec![])
