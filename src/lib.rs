@@ -11,6 +11,7 @@ mod tui;
 use std::any;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 
 /// An identifier used to distinguish between the same Widget.
 pub type Identity = &'static str;
@@ -153,7 +154,7 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 /// }
 /// ```
 pub struct Component {
-    widget: Box<dyn WidgetCore>,
+    widget: Arc<dyn WidgetCore>,
     children: Vec<Component>,
 }
 
@@ -189,13 +190,22 @@ impl PartialEq for Component {
 
 impl Eq for Component {}
 
+impl Clone for Component {
+    fn clone(&self) -> Self {
+        Self {
+            widget: self.widget.clone(),
+            children: self.children.clone(),
+        }
+    }
+}
+
 impl Component {
     fn new<W>(widget: W, children: Vec<Component>) -> Self
     where
         W: Widget + Send + Sync + 'static,
     {
         Self {
-            widget: Box::new(WidgetWrapper::new(widget)),
+            widget: Arc::new(WidgetWrapper::new(widget)),
             children,
         }
     }
