@@ -75,16 +75,16 @@ pub trait Widget: Hash {
     /// impl Widget for FooWidget {
     ///     /* Other impls */
     ///
-    ///     fn render(&self) -> Self {
+    ///     fn render(&self, children: &[Component]) -> Self {
     ///         // TODO: impl render
     ///     }
     /// }
     /// ```
-    fn render(&self) -> Component;
+    fn render(&self, _children: &[Component]) -> Component;
 }
 
 trait WidgetCore: Send + Sync {
-    fn render_with(&self) -> Component;
+    fn render_with(&self, children: &[Component]) -> Component;
     fn type_name(&self) -> &'static str;
     fn key(&self) -> u64;
 }
@@ -100,8 +100,8 @@ impl<W: Widget> WidgetWrapper<W> {
 }
 
 impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
-    fn render_with(&self) -> Component {
-        self.inner.render()
+    fn render_with(&self, children: &[Component]) -> Component {
+        self.inner.render(children)
     }
 
     fn type_name(&self) -> &'static str {
@@ -130,7 +130,7 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 /// impl Widget for FooWidget {
 ///     /* Other impls */
 ///
-///     fn render(&self) -> elapto::Component {
+///     fn render(&self, _children: &[elapto::Component]) -> elapto::Component {
 ///         mk!(<>)
 ///     }
 /// }
@@ -145,7 +145,7 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 /// impl Widget for FooWidget {
 ///     /* Other impls */
 ///
-///     fn render(&self) -> elapto::Component {
+///     fn render(&self, _children: &[elapto::Component]) -> elapto::Component {
 ///         elapto::make_component::<, _>(|p| {
 ///             /* Edit property */
 ///         }, vec![])
@@ -201,7 +201,7 @@ impl Component {
     }
 
     fn render(&self) -> Component {
-        self.widget.render_with()
+        self.widget.render_with(&self.children)
     }
 }
 
@@ -221,7 +221,7 @@ impl Component {
 /// impl Widget for FooWidget {
 ///     /* Other impls */
 ///
-///     fn render(&self) -> elapto::Component {
+///     fn render(&self, _children: &[Component]) -> elapto::Component {
 ///         elapto::make_component::<, _>(|p| {
 ///             /* Edit property */
 ///         }, vec![])

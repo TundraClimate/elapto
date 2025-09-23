@@ -67,7 +67,7 @@ fn test() {
             Self { text: prop.text }
         }
 
-        fn render(&self) -> crate::Component {
+        fn render(&self, _children: &[crate::Component]) -> crate::Component {
             unimplemented!()
         }
     }
