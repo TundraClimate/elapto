@@ -16,8 +16,10 @@ macro_rules! make_component {
         ])?
     ) => {{
         #[allow(unused_braces)]
-        $crate::make_component::<$tag, _>(|_p| { $($(_p.$pk = $pv);*)? })
-            $($(.with_children(make_component!($($inner),+)))*)?
+        $crate::make_component::<$tag, _>(
+            |_p| { $($(_p.$pk = $pv);*)? },
+            vec![ $($(make_component!($($inner),+)),*)? ]
+        )
     }};
 }
 
@@ -71,7 +73,7 @@ fn test() {
     }
 
     let component1 = mk!(<Paragraph, { text={"Hi, World!".to_string()}, id="Id" }>);
-    let component2 = mk!(<Paragraph>);
+    let component2 = mk!(<Paragraph, []>);
 
     assert_eq!(component1, component2);
 }

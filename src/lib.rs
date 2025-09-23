@@ -28,36 +28,6 @@ pub trait Widget: Hash {
     /// Properties assigned to a `Widget`.
     type Prop: WidgetProp;
 
-    #[allow(unused_mut)]
-    /// Receives child elements.
-    ///
-    /// It can be handled by including a `Vec<Component>` or similar in the struct.  
-    /// If child elements are not handled, implementing this may lead to unintended side effects.
-    ///
-    /// ## Example
-    ///
-    /// ```no_run
-    /// struct FooWidget {
-    ///     children: Vec<Component>,
-    /// }
-    ///
-    /// impl Widget for FooWidget {
-    ///     /* Other impls */
-    ///
-    ///     fn with_children(mut self, child: Component) -> Self {
-    ///         self.children.push(child);
-    ///
-    ///         self
-    ///     }
-    /// }
-    /// ```
-    fn with_children(mut self, _child: Component) -> Self
-    where
-        Self: Sized,
-    {
-        self
-    }
-
     /// Hashes the state of the `Widget`.
     ///
     /// The returned value is used to control rendering.  
@@ -178,7 +148,7 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 ///     fn render(&self) -> elapto::Component {
 ///         elapto::make_component::<, _>(|p| {
 ///             /* Edit property */
-///         })
+///         }, vec![])
 ///     }
 /// }
 /// ```
@@ -220,28 +190,14 @@ impl PartialEq for Component {
 impl Eq for Component {}
 
 impl Component {
-    fn new<W>(widget: W) -> Self
+    fn new<W>(widget: W, children: Vec<Component>) -> Self
     where
         W: Widget + Send + Sync + 'static,
     {
         Self {
             widget: Box::new(WidgetWrapper::new(widget)),
-            children: vec![],
+            children,
         }
-    }
-
-    /// Appends component to parent.
-    ///
-    /// ## Example
-    ///
-    /// ```no_run
-    /// elapto::make_component(|p| { /* edit */ })
-    ///     .with_children(/* component */)
-    /// ```
-    pub fn with_children(mut self, children: Component) -> Self {
-        self.children.push(children);
-
-        self
     }
 
     fn render(&self) -> Component {
@@ -268,11 +224,11 @@ impl Component {
 ///     fn render(&self) -> elapto::Component {
 ///         elapto::make_component::<, _>(|p| {
 ///             /* Edit property */
-///         })
+///         }, vec![])
 ///     }
 /// }
 /// ```
-pub fn make_component<W, F>(setup: F) -> Component
+pub fn make_component<W, F>(setup: F, children: Vec<Component>) -> Component
 where
     W: Widget + Send + Sync + 'static,
     F: FnOnce(&mut W::Prop),
@@ -281,5 +237,5 @@ where
 
     setup(&mut prop);
 
-    Component::new(W::make(prop))
+    Component::new(W::make(prop), children)
 }
