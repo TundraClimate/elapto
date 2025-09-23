@@ -1,4 +1,6 @@
 #[macro_export]
+/// A macro for creating Widgets using tag syntax.
+///
 macro_rules! mk {
     (
         <$($arg:tt),*>

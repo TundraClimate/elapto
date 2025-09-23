@@ -12,16 +12,45 @@ use std::any;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+/// An identifier used to distinguish between the same Widget.
 pub type Identity = &'static str;
 
+/// A trait that defines the required values in [Widget].
+///
 pub trait WidgetProp: Default {
+    /// An identifier used to distinguish between the same Widget.
     fn id(&self) -> Identity;
 }
 
+/// A trait for rendering unit.
+///
 pub trait Widget: Hash {
+    /// Properties assigned to a `Widget`.
     type Prop: WidgetProp;
 
     #[allow(unused_mut)]
+    /// Receives child elements.
+    ///
+    /// It can be handled by including a `Vec<Component>` or similar in the struct.  
+    /// If child elements are not handled, implementing this may lead to unintended side effects.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// struct FooWidget {
+    ///     children: Vec<Component>,
+    /// }
+    ///
+    /// impl Widget for FooWidget {
+    ///     /* Other impls */
+    ///
+    ///     fn with_children(mut self, child: Component) -> Self {
+    ///         self.children.push(child);
+    ///
+    ///         self
+    ///     }
+    /// }
+    /// ```
     fn with_children(mut self, _child: Component) -> Self
     where
         Self: Sized,
@@ -29,6 +58,10 @@ pub trait Widget: Hash {
         self
     }
 
+    /// Hashes the state of the `Widget`.
+    ///
+    /// The returned value is used to control rendering.  
+    /// If the previously returned value matches the current one, rendering will be suppressed.
     fn key(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
 
@@ -37,8 +70,46 @@ pub trait Widget: Hash {
         hasher.finish()
     }
 
+    /// Make a `Widget` from the `Self::Prop`.
+    ///
+    /// It is almost the same as `new()`.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// struct FooWidget {
+    ///     name: String,
+    /// }
+    ///
+    /// impl Widget for FooWidget {
+    ///     /* Other impls */
+    ///
+    ///     fn make(prop: Self::Prop) -> Self {
+    ///         Self { name: prop.name }
+    ///     }
+    /// }
+    /// ```
     fn make(prop: Self::Prop) -> Self;
 
+    /// Represents the rendering process using a `Component`.
+    ///
+    /// Note that `self` is reinitialized on each render.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// struct FooWidget {
+    ///     name: String,
+    /// }
+    ///
+    /// impl Widget for FooWidget {
+    ///     /* Other impls */
+    ///
+    ///     fn render(&self) -> Self {
+    ///         // TODO: impl render
+    ///     }
+    /// }
+    /// ```
     fn render(&self) -> Component;
 }
 
@@ -72,6 +143,45 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
     }
 }
 
+/// A tree structure node.
+///
+/// A `Component` is a struct that wraps a [Widget] and represents the information required for rendering in a tree structure.  
+/// For direct usage: please see [mk!] macro.
+///
+/// ## Example
+///
+/// TODO: Impl render()  
+/// with `mk!` macro:
+/// ```no_run
+/// use elapto::mk;
+/// use elapto::Widget;
+/// # struct FooWidget;
+///
+/// impl Widget for FooWidget {
+///     /* Other impls */
+///
+///     fn render(&self) -> elapto::Component {
+///         mk!(<>)
+///     }
+/// }
+/// ```
+///
+/// with [make_component]:  
+/// ```no_run
+/// use elapto::mk;
+/// use elapto::Widget;
+/// # struct FooWidget;
+///
+/// impl Widget for FooWidget {
+///     /* Other impls */
+///
+///     fn render(&self) -> elapto::Component {
+///         elapto::make_component::<, _>(|p| {
+///             /* Edit property */
+///         })
+///     }
+/// }
+/// ```
 pub struct Component {
     widget: Box<dyn WidgetCore>,
     children: Vec<Component>,
@@ -120,7 +230,15 @@ impl Component {
         }
     }
 
-    fn with_children(mut self, children: Component) -> Self {
+    /// Appends component to parent.
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// elapto::make_component(|p| { /* edit */ })
+    ///     .with_children(/* component */)
+    /// ```
+    pub fn with_children(mut self, children: Component) -> Self {
         self.children.push(children);
 
         self
@@ -131,6 +249,29 @@ impl Component {
     }
 }
 
+/// Make a component while setups its properties.
+///
+/// Properties will be equals `Default` if not changed by `setup`.  
+/// Consider using the [mk!] macro.
+///
+/// ## Example
+///
+/// TODO: Impl render()  
+/// ```no_run
+/// use elapto::mk;
+/// use elapto::Widget;
+/// # struct FooWidget;
+///
+/// impl Widget for FooWidget {
+///     /* Other impls */
+///
+///     fn render(&self) -> elapto::Component {
+///         elapto::make_component::<, _>(|p| {
+///             /* Edit property */
+///         })
+///     }
+/// }
+/// ```
 pub fn make_component<W, F>(setup: F) -> Component
 where
     W: Widget + Send + Sync + 'static,
