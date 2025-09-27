@@ -11,6 +11,18 @@ macro_rules! mk {
 
 macro_rules! make_component {
     (
+        _ $(, { $($pk:ident=$pv:tt),* $(,)? })? $(, [
+            $(<$($inner:tt),+>)*
+        ])?
+    ) => {{
+        #[allow(unused_braces)]
+        $crate::make_component::<$crate::Container, _>(
+            |_p| { $($(_p.$pk = $pv);*)? },
+            vec![ $($(make_component!($($inner),+)),*)? ]
+        )
+    }};
+
+    (
         $tag:ident $(, { $($pk:ident=$pv:tt),* $(,)? })? $(, [
             $(<$($inner:tt),+>)*
         ])?

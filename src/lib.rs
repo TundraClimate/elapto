@@ -249,3 +249,58 @@ where
 
     Component::new(W::make(prop), children)
 }
+
+#[derive(Default)]
+struct ContainerProp {
+    id: Identity,
+}
+
+impl WidgetProp for ContainerProp {
+    fn id(&self) -> Identity {
+        self.id
+    }
+}
+
+#[derive(Hash)]
+struct Container {}
+
+impl Widget for Container {
+    type Prop = ContainerProp;
+
+    fn render(&self, _children: &[Component]) -> Component {
+        unreachable!()
+    }
+
+    fn make(_prop: Self::Prop) -> Self {
+        Self {}
+    }
+}
+
+#[derive(Default)]
+struct TextProp {
+    v: &'static str,
+    id: Identity,
+}
+
+impl WidgetProp for TextProp {
+    fn id(&self) -> Identity {
+        self.id
+    }
+}
+
+#[derive(Hash)]
+struct Text {
+    text: &'static str,
+}
+
+impl Widget for Text {
+    type Prop = TextProp;
+
+    fn render(&self, _children: &[Component]) -> Component {
+        unreachable!()
+    }
+
+    fn make(prop: Self::Prop) -> Self {
+        Self { text: prop.v }
+    }
+}
