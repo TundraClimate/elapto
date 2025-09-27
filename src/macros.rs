@@ -35,6 +35,9 @@ macro_rules! make_component {
     }};
 }
 
+#[macro_export]
+/// A macro for implement the properties
+///
 macro_rules! prop {
     (
         $(#[$attr:meta])?

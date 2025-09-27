@@ -250,15 +250,9 @@ where
     Component::new(W::make(prop), children)
 }
 
-#[derive(Default)]
-struct ContainerProp {
-    id: Identity,
-}
-
-impl WidgetProp for ContainerProp {
-    fn id(&self) -> Identity {
-        self.id
-    }
+prop! {
+    #[derive(Default)]
+    struct ContainerProp {}
 }
 
 #[derive(Hash)]
@@ -276,15 +270,10 @@ impl Widget for Container {
     }
 }
 
-#[derive(Default)]
-struct TextProp {
-    v: &'static str,
-    id: Identity,
-}
-
-impl WidgetProp for TextProp {
-    fn id(&self) -> Identity {
-        self.id
+prop! {
+    #[derive(Default)]
+    struct TextProp {
+        v: &'static str,
     }
 }
 
