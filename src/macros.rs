@@ -89,6 +89,11 @@ fn test() {
 
     let component1 = mk!(<Paragraph, { text={"Hi, World!".to_string()}, id="Id" }>);
     let component2 = mk!(<Paragraph, []>);
+    let component3 = mk!(<Paragraph, { text={"Hi, World!".to_string()}, id="Id" }, [ <_> ]>);
 
-    assert_eq!(component1, component2);
+    assert_ne!(component1, component2);
+    assert_ne!(component1.widget.key(), component2.widget.key());
+
+    assert_ne!(component1, component3);
+    assert_eq!(component1.widget.key(), component3.widget.key());
 }

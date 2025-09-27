@@ -47,7 +47,7 @@ pub trait Widget: Hash {
     ///
     /// ## Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// struct FooWidget {
     ///     name: String,
     /// }
@@ -68,7 +68,7 @@ pub trait Widget: Hash {
     ///
     /// ## Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// struct FooWidget {
     ///     name: String,
     /// }
@@ -123,7 +123,7 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 ///
 /// TODO: Impl render()  
 /// with `mk!` macro:
-/// ```no_run
+/// ```ignore
 /// use elapto::mk;
 /// use elapto::Widget;
 /// # struct FooWidget;
@@ -138,7 +138,7 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 /// ```
 ///
 /// with [make_component]:  
-/// ```no_run
+/// ```ignore
 /// use elapto::mk;
 /// use elapto::Widget;
 /// # struct FooWidget;
@@ -223,7 +223,7 @@ impl Component {
 /// ## Example
 ///
 /// TODO: Impl render()  
-/// ```no_run
+/// ```ignore
 /// use elapto::mk;
 /// use elapto::Widget;
 /// # struct FooWidget;
