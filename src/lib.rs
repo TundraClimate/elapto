@@ -13,6 +13,7 @@ use std::any;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -299,18 +300,22 @@ impl Widget for Text {
     }
 }
 
-struct Engine {
+struct Engine<R: Widget> {
     active_state: Arc<AtomicBool>,
     initialize: Option<TuiInitialize>,
     restore: Option<Restore>,
+    root: Component,
+    phantom: PhantomData<R>,
 }
 
-impl Engine {
+impl<R: Widget + Sync + Send + 'static> Engine<R> {
     fn new() -> Self {
         Self {
             active_state: Arc::new(AtomicBool::new(true)),
             initialize: None,
             restore: None,
+            root: mk!(<R>),
+            phantom: PhantomData,
         }
     }
 
@@ -326,7 +331,7 @@ impl Engine {
         self
     }
 
-    fn render_start(&self, root: Component) -> io::Result<()> {
+    fn render_start(&self) -> io::Result<()> {
         if let Some(ref initialize) = self.initialize {
             execute!(io::stdout(), initialize)?;
         }
@@ -356,19 +361,32 @@ impl Engine {
 fn test() {
     use std::time::Duration;
 
+    #[derive(Hash)]
+    struct Root;
+
+    impl Widget for Root {
+        type Prop = ContainerProp;
+
+        fn make(_prop: Self::Prop) -> Self {
+            Self
+        }
+
+        fn render(&self, _children: &[Component]) -> Component {
+            mk!(<Text, { v={"Hello, World!".to_string()} }>)
+        }
+    }
+
     let initialize = TuiInitialize::new()
         .enable_raw_mode()
         .enter_alternate()
         .hide_cursor()
         .disable_line_wrap();
 
-    let engine = Engine::new()
+    let engine = Engine::<Root>::new()
         .set_initialize(initialize)
         .set_restore(Restore::all());
 
-    engine
-        .render_start(mk!(<Text, { v={"Hello, World!".to_string()} }>))
-        .ok();
+    engine.render_start().ok();
 
     thread::sleep(Duration::from_millis(3000));
 
