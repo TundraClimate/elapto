@@ -83,7 +83,12 @@ fn test() {
         }
 
         fn render(&self, _children: &[crate::Component]) -> crate::Component {
-            unimplemented!()
+            use crate::Text;
+
+            mk!(<_, [
+                <Text, { v={"Paragraph: ".to_string()} }>
+                <Text, { v={self.text.clone()} }>
+            ]>)
         }
     }
 

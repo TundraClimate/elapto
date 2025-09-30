@@ -273,13 +273,13 @@ impl Widget for Container {
 prop! {
     #[derive(Default)]
     struct TextProp {
-        v: &'static str,
+        v: String
     }
 }
 
 #[derive(Hash)]
 struct Text {
-    text: &'static str,
+    text: String,
 }
 
 impl Widget for Text {
