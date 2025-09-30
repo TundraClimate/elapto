@@ -9,6 +9,7 @@ macro_rules! mk {
     };
 }
 
+#[macro_export]
 macro_rules! make_component {
     (
         _ $(, { $($pk:ident=$pv:tt),* $(,)? })? $(, [
