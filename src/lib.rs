@@ -8,12 +8,15 @@
 mod macros;
 mod tui;
 
+use crossterm::execute;
 use std::any;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use tui::{Restore, TuiInitialize};
 
 /// An identifier used to distinguish between the same Widget.
 pub type Identity = &'static str;
@@ -298,23 +301,50 @@ impl Widget for Text {
 
 struct Engine {
     active_state: Arc<AtomicBool>,
+    initialize: Option<TuiInitialize>,
+    restore: Option<Restore>,
 }
 
 impl Engine {
     fn new() -> Self {
         Self {
             active_state: Arc::new(AtomicBool::new(true)),
+            initialize: None,
+            restore: None,
         }
     }
 
-    fn render_start(&self, root: Component) {
+    fn set_initialize(mut self, init: TuiInitialize) -> Self {
+        self.initialize = Some(init);
+
+        self
+    }
+
+    fn set_restore(mut self, restore: Restore) -> Self {
+        self.restore = Some(restore);
+
+        self
+    }
+
+    fn render_start(&self, root: Component) -> io::Result<()> {
+        if let Some(ref initialize) = self.initialize {
+            execute!(io::stdout(), initialize)?;
+        }
+
         let state = self.active_state.clone();
 
         thread::spawn(move || while state.load(Ordering::SeqCst) {});
+
+        Ok(())
     }
 
-    fn render_end(&self) {
+    fn render_end(&self) -> io::Result<()> {
         self.active_state.store(false, Ordering::SeqCst);
+
+        match self.restore {
+            Some(ref restore) => execute!(io::stdout(), restore),
+            None => Ok(()),
+        }
     }
 
     fn render(&self, component: Component) {
@@ -324,28 +354,23 @@ impl Engine {
 
 #[test]
 fn test() {
-    use crossterm::execute;
-    use std::io;
     use std::time::Duration;
-    use tui::{Restore, TuiInitialize};
 
-    execute!(
-        io::stdout(),
-        TuiInitialize::new()
-            .enable_raw_mode()
-            .enter_alternate()
-            .hide_cursor()
-            .disable_line_wrap()
-    )
-    .ok();
+    let initialize = TuiInitialize::new()
+        .enable_raw_mode()
+        .enter_alternate()
+        .hide_cursor()
+        .disable_line_wrap();
 
-    let engine = Engine::new();
+    let engine = Engine::new()
+        .set_initialize(initialize)
+        .set_restore(Restore::all());
 
-    engine.render_start(mk!(<Text, { v={"Hello, World!".to_string()} }>));
+    engine
+        .render_start(mk!(<Text, { v={"Hello, World!".to_string()} }>))
+        .ok();
 
     thread::sleep(Duration::from_millis(3000));
 
-    engine.render_end();
-
-    execute!(io::stdout(), Restore::all()).ok();
+    engine.render_end().ok();
 }
