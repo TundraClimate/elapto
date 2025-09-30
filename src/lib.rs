@@ -293,3 +293,25 @@ impl Widget for Text {
         Self { text: prop.v }
     }
 }
+
+struct Engine {}
+
+impl Engine {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn render_start(&self, root: Component) {
+        unimplemented!()
+    }
+
+    fn render(&self, component: Component) {
+        unimplemented!()
+    }
+}
+
+#[test]
+#[should_panic]
+fn test() {
+    Engine::new().render_start(mk!(<Text, { v={"Hello, World!".to_string()} }>));
+}
