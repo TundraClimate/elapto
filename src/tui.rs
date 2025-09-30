@@ -6,7 +6,7 @@ use crossterm::terminal::{
 };
 use std::fmt;
 
-struct TuiInitialize {
+pub struct TuiInitialize {
     raw_mode: bool,
     inner: Result<String, fmt::Error>,
 }
@@ -74,7 +74,7 @@ impl Command for TuiInitialize {
     }
 }
 
-struct Restore {
+pub struct Restore {
     raw_mode: bool,
     inner: Result<String, fmt::Error>,
 }

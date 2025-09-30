@@ -12,6 +12,8 @@ use std::any;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 
 /// An identifier used to distinguish between the same Widget.
 pub type Identity = &'static str;
@@ -294,15 +296,25 @@ impl Widget for Text {
     }
 }
 
-struct Engine {}
+struct Engine {
+    active_state: Arc<AtomicBool>,
+}
 
 impl Engine {
     fn new() -> Self {
-        Self {}
+        Self {
+            active_state: Arc::new(AtomicBool::new(true)),
+        }
     }
 
     fn render_start(&self, root: Component) {
-        unimplemented!()
+        let state = self.active_state.clone();
+
+        thread::spawn(move || while state.load(Ordering::SeqCst) {});
+    }
+
+    fn render_end(&self) {
+        self.active_state.store(false, Ordering::SeqCst);
     }
 
     fn render(&self, component: Component) {
@@ -311,7 +323,29 @@ impl Engine {
 }
 
 #[test]
-#[should_panic]
 fn test() {
-    Engine::new().render_start(mk!(<Text, { v={"Hello, World!".to_string()} }>));
+    use crossterm::execute;
+    use std::io;
+    use std::time::Duration;
+    use tui::{Restore, TuiInitialize};
+
+    execute!(
+        io::stdout(),
+        TuiInitialize::new()
+            .enable_raw_mode()
+            .enter_alternate()
+            .hide_cursor()
+            .disable_line_wrap()
+    )
+    .ok();
+
+    let engine = Engine::new();
+
+    engine.render_start(mk!(<Text, { v={"Hello, World!".to_string()} }>));
+
+    thread::sleep(Duration::from_millis(3000));
+
+    engine.render_end();
+
+    execute!(io::stdout(), Restore::all()).ok();
 }
