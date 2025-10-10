@@ -14,9 +14,10 @@ use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io;
 use std::marker::PhantomData;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use std::thread;
+use std::time::Duration;
 use tui::{Restore, TuiInitialize};
 
 /// An identifier used to distinguish between the same Widget.
@@ -304,7 +305,8 @@ struct Engine<R: Widget> {
     active_state: Arc<AtomicBool>,
     initialize: Option<TuiInitialize>,
     restore: Option<Restore>,
-    root: Component,
+    previous_root: RwLock<Component>,
+    render_tick: Duration,
     phantom: PhantomData<R>,
 }
 
@@ -314,7 +316,8 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
             active_state: Arc::new(AtomicBool::new(true)),
             initialize: None,
             restore: None,
-            root: mk!(<R>),
+            previous_root: RwLock::new(mk!(<R>)),
+            render_tick: Duration::from_millis(60),
             phantom: PhantomData,
         }
     }
@@ -327,6 +330,12 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
 
     fn set_restore(mut self, restore: Restore) -> Self {
         self.restore = Some(restore);
+
+        self
+    }
+
+    fn set_tick(mut self, tick_ms: u64) -> Self {
+        self.render_tick = Duration::from_millis(tick_ms);
 
         self
     }
@@ -383,6 +392,7 @@ fn test() {
         .disable_line_wrap();
 
     let engine = Engine::<Root>::new()
+        .set_tick(60)
         .set_initialize(initialize)
         .set_restore(Restore::all());
 
