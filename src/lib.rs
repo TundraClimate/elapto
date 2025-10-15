@@ -301,25 +301,25 @@ impl Widget for Text {
     }
 }
 
-struct Engine<R: Widget> {
-    active_state: Arc<AtomicBool>,
+struct EngineBuilder {
     initialize: Option<TuiInitialize>,
     restore: Option<Restore>,
-    previous_root: RwLock<Component>,
     render_tick: Duration,
-    phantom: PhantomData<R>,
 }
 
-impl<R: Widget + Sync + Send + 'static> Engine<R> {
-    fn new() -> Self {
+impl Default for EngineBuilder {
+    fn default() -> Self {
         Self {
-            active_state: Arc::new(AtomicBool::new(true)),
             initialize: None,
             restore: None,
-            previous_root: RwLock::new(mk!(<R>)),
             render_tick: Duration::from_millis(60),
-            phantom: PhantomData,
         }
+    }
+}
+
+impl EngineBuilder {
+    fn new() -> Self {
+        Self::default()
     }
 
     fn set_initialize(mut self, init: TuiInitialize) -> Self {
@@ -338,6 +338,36 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
         self.render_tick = Duration::from_millis(tick_ms);
 
         self
+    }
+
+    fn build<R: Widget + Send + Sync + 'static>(self) -> Engine<R> {
+        Engine::<R>::new(self.initialize, self.restore, self.render_tick)
+    }
+}
+
+struct Engine<R: Widget> {
+    active_state: Arc<AtomicBool>,
+    initialize: Option<TuiInitialize>,
+    restore: Option<Restore>,
+    previous_root: RwLock<Component>,
+    render_tick: Duration,
+    phantom: PhantomData<R>,
+}
+
+impl<R: Widget + Sync + Send + 'static> Engine<R> {
+    fn new(
+        initialize: Option<TuiInitialize>,
+        restore: Option<Restore>,
+        render_tick: Duration,
+    ) -> Self {
+        Self {
+            active_state: Arc::new(AtomicBool::new(true)),
+            initialize,
+            restore,
+            previous_root: RwLock::new(mk!(<R>)),
+            render_tick,
+            phantom: PhantomData,
+        }
     }
 
     fn render_start(&self) -> io::Result<()> {
@@ -391,10 +421,11 @@ fn test() {
         .hide_cursor()
         .disable_line_wrap();
 
-    let engine = Engine::<Root>::new()
+    let engine = EngineBuilder::new()
         .set_tick(60)
         .set_initialize(initialize)
-        .set_restore(Restore::all());
+        .set_restore(Restore::all())
+        .build::<Root>();
 
     engine.render_start().ok();
 
