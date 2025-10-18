@@ -7,7 +7,10 @@ pub struct StyleSheet {
 
 /// The enum in style specification types.
 pub enum BlockType {
+    /// Identifier
     Id(String),
+
+    /// Class
     Class(String),
 }
 
