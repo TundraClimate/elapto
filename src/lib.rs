@@ -24,11 +24,17 @@ use tui::{Restore, TuiInitialize};
 /// An identifier used to distinguish between the same Widget.
 pub type Identity = &'static str;
 
+/// A class used to specify the style.
+pub type Class = &'static str;
+
 /// A trait that defines the required values in [Widget].
 ///
 pub trait WidgetProp: Default {
     /// An identifier used to distinguish between the same Widget.
     fn id(&self) -> Identity;
+
+    /// A class used to specify the style.
+    fn class(&self) -> Class;
 }
 
 /// A trait for rendering unit.

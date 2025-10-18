@@ -49,12 +49,17 @@ macro_rules! prop {
         $(#[$attr])?
         $v struct $pname {
             $v id: $crate::Identity,
+            $v class: $crate::Class,
             $($ivis $inner_id: $inner_ty),*
         }
 
         impl $crate::WidgetProp for $pname {
             fn id(&self) -> $crate::Identity {
                 self.id
+            }
+
+            fn class(&self) -> $crate::Class {
+                self.class
             }
         }
     };
