@@ -6,6 +6,7 @@
 //! README and this docs.rs is BETA ver, Information will update always.  
 
 mod macros;
+mod style;
 mod tui;
 
 use crossterm::execute;
