@@ -16,4 +16,24 @@ pub enum BlockType {
 }
 
 /// A style apply to [crate::Component].
-pub struct Style {}
+pub struct Style {
+    display: DisplayStyle,
+}
+
+/// The enum in `display` properties.
+pub enum DisplayStyle {
+    /// Block style
+    Block,
+
+    /// Inline style
+    Inline,
+
+    /// Flex style
+    Flex,
+
+    /// Grid style
+    Grid,
+
+    /// Disable style
+    None,
+}
