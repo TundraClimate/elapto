@@ -1,12 +1,8 @@
-/// A wrapper of [Vec<StyleBlock>], It's similar to the .css files.
-pub struct StyleSheet {
-    blocks: Vec<StyleBlock>,
-}
+use std::collections::HashMap;
 
-/// A unit of styling.
-pub struct StyleBlock {
-    ty: BlockType,
-    style: Style,
+/// A wrapper of [HashMap<BlockType, Style>], It's similar to the .css files.
+pub struct StyleSheet {
+    blocks: HashMap<BlockType, Style>,
 }
 
 /// The enum in style specification types.
