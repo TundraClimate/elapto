@@ -395,6 +395,10 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
             execute!(io::stdout(), initialize)?;
         }
 
+        if self.active_state.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+
         let state = self.active_state.clone();
 
         thread::spawn(move || while state.load(Ordering::SeqCst) {});
