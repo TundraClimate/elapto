@@ -19,6 +19,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
+use style::StyleSheet;
 use tui::{Restore, TuiInitialize};
 
 /// An identifier used to distinguish between the same Widget.
@@ -312,6 +313,7 @@ struct EngineBuilder {
     initialize: Option<TuiInitialize>,
     restore: Option<Restore>,
     render_tick: Duration,
+    style: StyleSheet,
 }
 
 impl Default for EngineBuilder {
@@ -320,6 +322,7 @@ impl Default for EngineBuilder {
             initialize: None,
             restore: None,
             render_tick: Duration::from_millis(60),
+            style: StyleSheet::new(),
         }
     }
 }
@@ -347,8 +350,14 @@ impl EngineBuilder {
         self
     }
 
+    fn set_style(mut self, stylesheet: StyleSheet) -> Self {
+        self.style = stylesheet;
+
+        self
+    }
+
     fn build<R: Widget + Send + Sync + 'static>(self) -> Engine<R> {
-        Engine::<R>::new(self.initialize, self.restore, self.render_tick)
+        Engine::<R>::new(self.initialize, self.restore, self.render_tick, self.style)
     }
 }
 
@@ -358,6 +367,7 @@ struct Engine<R: Widget> {
     restore: Option<Restore>,
     previous_root: RwLock<Component>,
     render_tick: Duration,
+    style: StyleSheet,
     phantom: PhantomData<R>,
 }
 
@@ -366,6 +376,7 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
         initialize: Option<TuiInitialize>,
         restore: Option<Restore>,
         render_tick: Duration,
+        style: StyleSheet,
     ) -> Self {
         Self {
             active_state: Arc::new(AtomicBool::new(true)),
@@ -373,6 +384,7 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
             restore,
             previous_root: RwLock::new(mk!(<R>)),
             render_tick,
+            style,
             phantom: PhantomData,
         }
     }
@@ -406,7 +418,7 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
 #[test]
 fn test() {
     use std::time::Duration;
-    use style::{Style, StyleSheet};
+    use style::Style;
 
     #[derive(Hash)]
     struct Root;
@@ -436,6 +448,7 @@ fn test() {
 
     let engine = EngineBuilder::new()
         .set_tick(60)
+        .set_style(sheet)
         .set_initialize(initialize)
         .set_restore(Restore::all())
         .build::<Root>();
