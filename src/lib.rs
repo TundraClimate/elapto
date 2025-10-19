@@ -406,6 +406,7 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
 #[test]
 fn test() {
     use std::time::Duration;
+    use style::{Style, StyleSheet};
 
     #[derive(Hash)]
     struct Root;
@@ -427,6 +428,11 @@ fn test() {
         .enter_alternate()
         .hide_cursor()
         .disable_line_wrap();
+
+    let sheet = Ok(StyleSheet::new())
+        .and_then(|s| s.try_append(".text", Style::default()))
+        .and_then(|s| s.try_append(".p", Style::default()))
+        .expect("Sheet parsing failed");
 
     let engine = EngineBuilder::new()
         .set_tick(60)
