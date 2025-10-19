@@ -10,6 +10,8 @@ macro_rules! mk {
 }
 
 #[macro_export]
+/// A macro for parse tag tree to component.
+///
 macro_rules! make_component {
     (
         _ $(, { $($pk:ident=$pv:tt),* $(,)? })? $(, [
