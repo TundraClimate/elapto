@@ -67,6 +67,42 @@ macro_rules! prop {
     };
 }
 
+#[macro_export]
+/// A macro for parse to [crate::StyleSheet] from a raw text.
+///
+macro_rules! sheet {
+    (
+        $(
+            $prefix:tt$tag:tt {
+                $($key:ident: $value:tt;)*
+            }
+        )*
+    ) => {{
+        Ok($crate::style::StyleSheet::new())
+            $(.and_then(|s| {
+                s.try_append(
+                    format!("{}{}", stringify!($prefix), stringify!($tag)),
+                    style!($($key: $value)*)?
+                )
+            }))*
+    }};
+}
+
+#[macro_export]
+/// A macro for parse to [crate::style::Style] from a raw text.
+///
+macro_rules! style {
+    (
+        $($key:ident: $value:tt);*
+    ) => {{
+        let mut style = $crate::style::Style::default();
+
+        $(style.$key = stringify!($value).try_into()?;)*
+
+        Ok::<_, $crate::style::ParseError>(style)
+    }};
+}
+
 #[test]
 fn test() {
     use crate::Widget;

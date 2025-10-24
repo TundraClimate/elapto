@@ -446,10 +446,13 @@ fn test() {
         .hide_cursor()
         .disable_line_wrap();
 
-    let sheet = Ok(StyleSheet::new())
-        .and_then(|s| s.try_append(".text", Style::default()))
-        .and_then(|s| s.try_append(".p", Style::default()))
-        .expect("Sheet parsing failed");
+    let sheet = sheet!(
+        .text {
+            display: inline_flex;
+        }
+        .p {}
+    )
+    .expect("Sheet parsing failed");
 
     let engine = EngineBuilder::new()
         .set_tick(60)
@@ -460,7 +463,7 @@ fn test() {
 
     engine.render_start().ok();
 
-    thread::sleep(Duration::from_millis(3000));
+    /* thread::sleep(Duration::from_millis(3000)); */
 
     engine.render_end().ok();
 }
