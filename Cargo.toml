@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+elapto-macros = { version = "0.1.0", path = "macros" }
+
 crossterm = "0.29.0"
+
+[workspace]
+members = ["macros"]
