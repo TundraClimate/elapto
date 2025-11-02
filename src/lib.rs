@@ -30,7 +30,6 @@ pub type Identity = &'static str;
 pub type Class = &'static str;
 
 /// A trait that defines the required values in [Widget].
-///
 pub trait WidgetProp: Default {
     /// An identifier used to distinguish between the same Widget.
     fn id(&self) -> Identity;
@@ -40,7 +39,6 @@ pub trait WidgetProp: Default {
 }
 
 /// A trait for rendering unit.
-///
 pub trait Widget: Hash {
     /// Properties assigned to a `Widget`.
     type Prop: WidgetProp;
@@ -60,43 +58,11 @@ pub trait Widget: Hash {
     /// Make a `Widget` from the `Self::Prop`.
     ///
     /// It is almost the same as `new()`.
-    ///
-    /// ## Example
-    ///
-    /// ```ignore
-    /// struct FooWidget {
-    ///     name: String,
-    /// }
-    ///
-    /// impl Widget for FooWidget {
-    ///     /* Other impls */
-    ///
-    ///     fn make(prop: Self::Prop) -> Self {
-    ///         Self { name: prop.name }
-    ///     }
-    /// }
-    /// ```
     fn make(prop: Self::Prop) -> Self;
 
     /// Represents the rendering process using a `Component`.
     ///
     /// Note that `self` is reinitialized on each render.
-    ///
-    /// ## Example
-    ///
-    /// ```ignore
-    /// struct FooWidget {
-    ///     name: String,
-    /// }
-    ///
-    /// impl Widget for FooWidget {
-    ///     /* Other impls */
-    ///
-    ///     fn render(&self, _children: &[Component]) -> Component {
-    ///         // TODO: impl render
-    ///     }
-    /// }
-    /// ```
     fn render(&self, _children: &[Component]) -> Component;
 }
 
@@ -134,41 +100,6 @@ impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
 ///
 /// A `Component` is a struct that wraps a [Widget] and represents the information required for rendering in a tree structure.  
 /// For direct usage: please see [mk!] macro.
-///
-/// ## Example
-///
-/// TODO: Impl render()  
-/// with `mk!` macro:
-/// ```ignore
-/// use elapto::mk;
-/// use elapto::Widget;
-/// # struct FooWidget;
-///
-/// impl Widget for FooWidget {
-///     /* Other impls */
-///
-///     fn render(&self, _children: &[elapto::Component]) -> elapto::Component {
-///         mk!(<>)
-///     }
-/// }
-/// ```
-///
-/// with [make_component]:  
-/// ```ignore
-/// use elapto::mk;
-/// use elapto::Widget;
-/// # struct FooWidget;
-///
-/// impl Widget for FooWidget {
-///     /* Other impls */
-///
-///     fn render(&self, _children: &[elapto::Component]) -> elapto::Component {
-///         elapto::make_component::<, _>(|p| {
-///             /* Edit property */
-///         }, vec![])
-///     }
-/// }
-/// ```
 pub struct Component {
     widget: Arc<dyn WidgetCore>,
     children: Vec<Component>,
@@ -235,25 +166,6 @@ impl Component {
 ///
 /// Properties will be equals `Default` if not changed by `setup`.  
 /// Consider using the [mk!] macro.
-///
-/// ## Example
-///
-/// TODO: Impl render()  
-/// ```ignore
-/// use elapto::mk;
-/// use elapto::Widget;
-/// # struct FooWidget;
-///
-/// impl Widget for FooWidget {
-///     /* Other impls */
-///
-///     fn render(&self, _children: &[elapto::Component]) -> elapto::Component {
-///         elapto::make_component::<, _>(|p| {
-///             /* Edit property */
-///         }, vec![])
-///     }
-/// }
-/// ```
 pub fn make_component<W, F>(setup: F, children: Vec<Component>) -> Component
 where
     W: Widget + Send + Sync + 'static,

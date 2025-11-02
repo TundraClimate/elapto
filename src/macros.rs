@@ -1,6 +1,5 @@
 #[macro_export]
 /// A macro for creating Widgets using tag syntax.
-///
 macro_rules! mk {
     (
         <$($arg:tt),*>
@@ -11,7 +10,6 @@ macro_rules! mk {
 
 #[macro_export]
 /// A macro for parse tag tree to component.
-///
 macro_rules! make_component {
     (
         _ $(, { $($pk:ident=$pv:tt),* $(,)? })? $(, [
@@ -40,7 +38,6 @@ macro_rules! make_component {
 
 #[macro_export]
 /// A macro for implement the properties
-///
 macro_rules! prop {
     (
         $(#[$attr:meta])?
@@ -69,7 +66,6 @@ macro_rules! prop {
 
 #[macro_export]
 /// A macro for parse to [crate::StyleSheet] from a raw text.
-///
 macro_rules! sheet {
     (
         $(
@@ -90,7 +86,6 @@ macro_rules! sheet {
 
 #[macro_export]
 /// A macro for parse to [crate::style::Style] from a raw text.
-///
 macro_rules! style {
     (
         $($key:ident: $value:tt);*
