@@ -8,3 +8,14 @@
 
 mod style;
 mod tui;
+
+use elapto_macros::tag_macro;
+
+#[test]
+fn test() {
+    struct Foo;
+
+    let tag = tag_macro!(<Foo>);
+
+    assert_eq!(tag, "".to_string())
+}
