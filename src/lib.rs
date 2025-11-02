@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use style::StyleSheet;
 use tui::{Restore, TuiInitialize};
 
@@ -400,8 +400,19 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
         }
 
         let state = self.active_state.clone();
+        let tick = self.render_tick;
 
-        thread::spawn(move || while state.load(Ordering::SeqCst) {});
+        thread::spawn(move || {
+            while state.load(Ordering::SeqCst) {
+                let start = Instant::now();
+
+                let elapsed = start.elapsed();
+
+                if elapsed < tick {
+                    thread::sleep(tick - elapsed);
+                }
+            }
+        });
 
         Ok(())
     }
