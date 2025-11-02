@@ -399,6 +399,12 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
             return Ok(());
         }
 
+        self.start_thread();
+
+        Ok(())
+    }
+
+    fn start_thread(&self) {
         let state = self.active_state.clone();
         let tick = self.render_tick;
 
@@ -413,8 +419,6 @@ impl<R: Widget + Sync + Send + 'static> Engine<R> {
                 }
             }
         });
-
-        Ok(())
     }
 
     fn render_end(&self) -> io::Result<()> {
