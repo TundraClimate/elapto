@@ -104,14 +104,41 @@ impl Parse for Tag {
         }
 
         let name: Ident = input.parse()?;
+        let mut id: Option<Expr> = None;
+        let mut class: Option<Expr> = None;
+        let mut properties = vec![];
 
-        // Props
+        while !input.is_empty() {
+            if input.peek(Token![/]) && input.peek2(Token![>]) {
+                input.parse::<Token![/]>()?;
+                input.parse::<Token![>]>()?;
 
-        if input.peek(Token![/]) {
-            input.parse::<Token![/]>()?;
-            input.parse::<Token![>]>()?;
+                return Ok(Self::widget(name, id, class, properties, vec![]));
+            }
 
-            return Ok(Self::widget(name, None, None, vec![], vec![]));
+            if input.peek(Token![>]) {
+                break;
+            }
+
+            let k: Ident = input.parse()?;
+
+            input.parse::<Token![=]>()?;
+
+            let v: Expr = input.parse()?;
+
+            if k == "id" {
+                id = Some(v);
+
+                continue;
+            }
+
+            if k == "class" {
+                class = Some(v);
+
+                continue;
+            }
+
+            properties.push((k, v));
         }
 
         input.parse::<Token![>]>()?;
@@ -129,7 +156,7 @@ impl Parse for Tag {
 
         input.parse::<Token![>]>()?;
 
-        Ok(Self::widget(name, None, None, vec![], childrens))
+        Ok(Self::widget(name, id, class, properties, childrens))
     }
 }
 
