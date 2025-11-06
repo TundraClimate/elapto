@@ -2,11 +2,12 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use std::fmt::Debug;
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, Ident, Token};
+use syn::{Expr, Ident, LitStr, Token, token::Brace};
 
 enum Node {
     Tag(Tag),
-    Expr(Expr),
+    Inline(Inline),
+    Text(Text),
 }
 
 enum Tag {
@@ -22,6 +23,14 @@ enum Tag {
         dummy_props: Vec<(Ident, Expr)>,
         childrens: Vec<Node>,
     },
+}
+
+struct Inline {
+    inner: Expr,
+}
+
+struct Text {
+    inner: LitStr,
 }
 
 impl Tag {
@@ -160,12 +169,35 @@ impl Parse for Tag {
     }
 }
 
+impl Parse for Inline {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            inner: input.parse()?,
+        })
+    }
+}
+
+impl Parse for Text {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            inner: input.parse()?,
+        })
+    }
+}
+
 impl Parse for Node {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(Token![<]) {
             Ok(Node::Tag(input.parse()?))
+        } else if input.peek(LitStr) {
+            Ok(Node::Text(input.parse()?))
+        } else if input.peek(Brace) {
+            let content;
+            syn::braced!(content in input);
+
+            Ok(Node::Inline(content.parse()?))
         } else {
-            Ok(Node::Expr(input.parse()?))
+            Err(syn::Error::new(Span::call_site(), "unexpected token"))
         }
     }
 }
@@ -189,8 +221,9 @@ fn parse_childrens(input: ParseStream) -> syn::Result<Vec<Node>> {
 impl Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Tag(tag) => write!(f, "Node::tag"),
-            Self::Expr(expr) => write!(f, "Node::expr"),
+            Self::Tag(tag) => write!(f, "Node::tag, {:?}", tag.childrens()),
+            Self::Inline(expr) => write!(f, "Node::inline"),
+            Self::Text(text) => write!(f, "Node::text, {:?}", text.inner.value()),
         }
     }
 }
