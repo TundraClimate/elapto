@@ -254,8 +254,26 @@ fn parse_childrens(input: ParseStream) -> syn::Result<Vec<Node>> {
 impl Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Tag(tag) => write!(f, "Node::tag, {:?}", tag.childrens()),
-            Self::Inline(expr) => write!(f, "Node::inline"),
+            Self::Tag(tag) => write!(
+                f,
+                "Node::tag: ({:?}:{:?})",
+                tag.properties()
+                    .iter()
+                    .map(|(k, v)| format!(
+                        "{}={}",
+                        k,
+                        match v {
+                            Property::Text(ls) => ls.value(),
+                            Property::Bool => "true".to_string(),
+                            Property::Expr(expr) => quote! { { #expr } }.to_string(),
+                        }
+                    ))
+                    .collect::<Vec<_>>(),
+                tag.childrens()
+            ),
+            Self::Inline(Inline { inner }) => {
+                write!(f, "Node::inline: {}", quote! { { #inner } })
+            }
             Self::Text(text) => write!(f, "Node::text, {:?}", text.inner.value()),
         }
     }
