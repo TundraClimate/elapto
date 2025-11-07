@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use std::fmt::Debug;
 use syn::parse::{Parse, ParseStream};
-use syn::{Expr, Ident, LitStr, Token, token::Brace};
+use syn::{Expr, ExprLit, Ident, Lit, LitStr, Token, token::Brace};
 
 enum Node {
     Tag(Tag),
@@ -15,12 +15,12 @@ enum Tag {
         name: Ident,
         id: Option<Expr>,
         class: Option<Expr>,
-        properties: Vec<(Ident, Expr)>,
+        properties: Vec<(Ident, Property)>,
         childrens: Vec<Node>,
     },
     FragmentTemplate {
         constant_name: Ident,
-        dummy_props: Vec<(Ident, Expr)>,
+        dummy_props: Vec<(Ident, Property)>,
         childrens: Vec<Node>,
     },
 }
@@ -31,6 +31,12 @@ struct Inline {
 
 struct Text {
     inner: LitStr,
+}
+
+enum Property {
+    Text(LitStr),
+    Bool,
+    Expr(Expr),
 }
 
 impl Tag {
@@ -55,7 +61,7 @@ impl Tag {
         }
     }
 
-    fn properties(&self) -> &Vec<(Ident, Expr)> {
+    fn properties(&self) -> &Vec<(Ident, Property)> {
         match self {
             Self::WidgetTemplate { properties, .. } => properties,
             Self::FragmentTemplate { dummy_props, .. } => dummy_props,
@@ -68,14 +74,12 @@ impl Tag {
             Self::FragmentTemplate { childrens, .. } => childrens,
         }
     }
-}
 
-impl Tag {
     fn widget(
         name: Ident,
         id: Option<Expr>,
         class: Option<Expr>,
-        properties: Vec<(Ident, Expr)>,
+        properties: Vec<(Ident, Property)>,
         childrens: Vec<Node>,
     ) -> Self {
         Self::WidgetTemplate {
@@ -92,6 +96,19 @@ impl Tag {
             constant_name: Ident::new("Fragment", Span::call_site()),
             dummy_props: vec![],
             childrens,
+        }
+    }
+}
+
+impl Property {
+    fn into_expr(self) -> Option<Expr> {
+        match self {
+            Self::Text(ls) => Some(Expr::Lit(ExprLit {
+                attrs: vec![],
+                lit: Lit::Str(ls),
+            })),
+            Self::Bool => None,
+            Self::Expr(expr) => Some(expr),
         }
     }
 }
@@ -131,18 +148,34 @@ impl Parse for Tag {
 
             let k: Ident = input.parse()?;
 
-            input.parse::<Token![=]>()?;
+            let v: Property = if input.peek(Token![=]) && input.peek2(LitStr) {
+                input.parse::<Token![=]>()?;
+                let s: LitStr = input.parse()?;
 
-            let v: Expr = input.parse()?;
+                Property::Text(s)
+            } else if input.peek(Token![=]) && input.peek2(Brace) {
+                input.parse::<Token![=]>()?;
+
+                let content;
+                syn::braced!(content in input);
+
+                let e: Expr = content.parse()?;
+
+                Property::Expr(e)
+            } else if !input.peek(Token![=]) {
+                Property::Bool
+            } else {
+                return Err(syn::Error::new(Span::call_site(), "unexpected tokens"));
+            };
 
             if k == "id" {
-                id = Some(v);
+                id = v.into_expr();
 
                 continue;
             }
 
             if k == "class" {
-                class = Some(v);
+                class = v.into_expr();
 
                 continue;
             }

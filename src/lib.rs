@@ -15,7 +15,7 @@ use elapto_macros::tag_macro;
 fn test() {
     struct Foo;
 
-    let tag = tag_macro!(<>{ "" }</>);
+    let tag = tag_macro!(<Foo a b="12" c={ 182 }>{ "" }</Foo>);
 
     assert_eq!(tag, "".to_string())
 }
