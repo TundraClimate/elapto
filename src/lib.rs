@@ -9,13 +9,13 @@
 mod style;
 mod tui;
 
-use elapto_macros::tag_macro;
+pub use elapto_macros::mk;
 
 #[test]
 fn test() {
     struct Foo;
 
-    let tag = tag_macro!(<Foo a b="12" c={ 182 + 2 }>{ "Hello, World!" }</Foo>);
+    let tag = mk!(<Foo a b="12" c={ 182 + 2 }>{ "Hello, World!" }</Foo>);
 
     assert_eq!(tag, "".to_string())
 }
