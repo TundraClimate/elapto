@@ -16,16 +16,24 @@ pub use elapto_macros::mk;
 type Identifier = String;
 type Class = String;
 
+trait Widget {
+    fn with_prop<P>(prop: P) -> Self
+    where
+        Self: Sized;
+}
+
 struct Component {
     id: Option<Identifier>,
     class: Option<Class>,
+    widget: Box<dyn Widget>,
 }
 
 impl Component {
-    fn new() -> Self {
+    fn new<W: Widget + 'static>(widget: W) -> Self {
         Self {
             id: None,
             class: None,
+            widget: Box::new(widget),
         }
     }
 
@@ -51,6 +59,15 @@ impl Debug for Component {
 #[test]
 fn test() {
     struct Foo;
+
+    impl Widget for Foo {
+        fn with_prop<P>(prop: P) -> Self
+        where
+            Self: Sized,
+        {
+            Self
+        }
+    }
 
     let tag = mk!(<Foo a b="12" c={ 182 + 2 }>{ "Hello, World!" }</Foo>);
 

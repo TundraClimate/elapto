@@ -270,9 +270,20 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
         Node::Text(_) => None,
         Node::Inline(_) => None,
     };
+    let widget = match node {
+        Node::Tag(ref tag) => {
+            let name = tag.name();
+
+            Some(quote! {
+                #name::with_prop("")
+            })
+        }
+        Node::Text(_) => None,
+        Node::Inline(_) => None,
+    };
 
     Ok(quote! {
-        crate::Component::new()
+        crate::Component::new(#widget)
             #id
             #class
     })
