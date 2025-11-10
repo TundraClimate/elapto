@@ -273,9 +273,29 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
     let widget = match node {
         Node::Tag(ref tag) => {
             let name = tag.name();
+            let props = tag.properties();
+
+            let props = props
+                .iter()
+                .map(|(k, v)| {
+                    let v = match v {
+                        Property::Text(ls) => quote! { #ls },
+                        Property::Bool => quote! { true },
+                        Property::Expr(expr) => quote! { #expr },
+                    };
+
+                    quote! { p.#k = #v; }
+                })
+                .collect::<Vec<_>>();
 
             Some(quote! {
-                #name::with_prop("")
+                {
+                    let mut p = #name::default();
+
+                    #(#props)*
+
+                    p
+                }
             })
         }
         Node::Text(_) => None,

@@ -16,11 +16,7 @@ pub use elapto_macros::mk;
 type Identifier = String;
 type Class = String;
 
-trait Widget {
-    fn with_prop<P>(prop: P) -> Self
-    where
-        Self: Sized;
-}
+trait Widget {}
 
 struct Component {
     id: Option<Identifier>,
@@ -58,18 +54,16 @@ impl Debug for Component {
 
 #[test]
 fn test() {
-    struct Foo;
-
-    impl Widget for Foo {
-        fn with_prop<P>(prop: P) -> Self
-        where
-            Self: Sized,
-        {
-            Self
-        }
+    #[derive(Default)]
+    struct Foo {
+        pub name: &'static str,
+        pub expr: usize,
+        pub bacte: bool,
     }
 
-    let tag = mk!(<Foo a b="12" c={ 182 + 2 }>{ "Hello, World!" }</Foo>);
+    impl Widget for Foo {}
+
+    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>{ "Hello, World!" }</Foo>);
 
     assert_eq!(format!("{:?}", tag), "".to_string())
 }
