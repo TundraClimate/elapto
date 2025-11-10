@@ -1,6 +1,5 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use std::fmt::Debug;
 use syn::parse::{Parse, ParseStream};
 use syn::{Expr, ExprLit, Ident, Lit, LitStr, Token, token::Brace};
 
@@ -251,39 +250,30 @@ fn parse_childrens(input: ParseStream) -> syn::Result<Vec<Node>> {
     Ok(childrens)
 }
 
-impl Debug for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Tag(tag) => write!(
-                f,
-                "Node::tag: ({:?}:{:?})",
-                tag.properties()
-                    .iter()
-                    .map(|(k, v)| format!(
-                        "{}={}",
-                        k,
-                        match v {
-                            Property::Text(ls) => ls.value(),
-                            Property::Bool => "true".to_string(),
-                            Property::Expr(expr) => quote! { { #expr } }.to_string(),
-                        }
-                    ))
-                    .collect::<Vec<_>>(),
-                tag.childrens()
-            ),
-            Self::Inline(Inline { inner }) => {
-                write!(f, "Node::inline: {}", quote! { { #inner } })
-            }
-            Self::Text(text) => write!(f, "Node::text, {:?}", text.inner.value()),
-        }
-    }
-}
-
 pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
     let node = syn::parse2::<Node>(tokens)?;
-    let node = format!("{:?}", node);
+    let id = match node {
+        Node::Tag(ref tag) => {
+            let id = tag.id();
+
+            id.map(|id| quote! { .set_id(#id) })
+        }
+        Node::Text(_) => None,
+        Node::Inline(_) => None,
+    };
+    let class = match node {
+        Node::Tag(ref tag) => {
+            let class = tag.class();
+
+            class.map(|class| quote! { .set_class(#class) })
+        }
+        Node::Text(_) => None,
+        Node::Inline(_) => None,
+    };
 
     Ok(quote! {
-        format!("{}", stringify!(#node))
+        crate::Component::new()
+            #id
+            #class
     })
 }
