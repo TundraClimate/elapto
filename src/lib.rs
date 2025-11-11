@@ -60,6 +60,26 @@ impl Debug for Component {
     }
 }
 
+trait Expand {
+    fn expand(self) -> String;
+}
+
+#[widget]
+#[derive(Default)]
+struct Fragment;
+
+#[widget]
+#[derive(Default)]
+struct Embed {
+    expanded: String,
+}
+
+#[widget]
+#[derive(Default)]
+struct Text {
+    value: &'static str,
+}
+
 #[test]
 fn test() {
     #[widget]
