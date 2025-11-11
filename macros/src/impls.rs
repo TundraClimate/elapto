@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{Expr, ExprLit, Ident, ItemStruct, Lit, LitStr, Token};
+use syn::{Expr, ExprLit, Fields, Ident, ItemStruct, Lit, LitStr, Token};
 
 enum Node {
     Tag(Tag),
@@ -397,6 +397,12 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
     let vis = &item.vis;
     let name = &item.ident;
     let fields = &item.fields;
+
+    let is_tuple = matches!(fields, Fields::Unnamed(_));
+
+    if is_tuple {
+        return Err(syn::Error::new(Span::call_site(), "expected named struct"));
+    }
 
     let expand_fields = fields
         .iter()
