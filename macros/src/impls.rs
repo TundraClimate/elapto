@@ -355,7 +355,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
                 })
                 .collect::<Vec<_>>();
 
-            Some(quote! {
+            quote! {
                 {
                     let mut p = #name::default();
 
@@ -363,10 +363,18 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
 
                     p
                 }
-            })
+            }
         }
-        Node::Text(_) => None,
-        Node::Inline(_) => None,
+        Node::Text(ref text) => {
+            let text = &text.inner;
+
+            quote! { crate::Text::new(#text) }
+        }
+        Node::Inline(ref expr) => {
+            let expr = &expr.inner;
+
+            quote! { crate::Embed::new(crate::Expand::expand(#expr)) }
+        }
     };
     let childrens = match node {
         Node::Tag(ref tag) => {
@@ -374,7 +382,6 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
 
             childrens
                 .iter()
-                .filter(|node| matches!(node, Node::Tag(_)))
                 .map(|children| quote! { .with_children(crate::mk!(#children)) })
                 .collect::<Vec<_>>()
         }

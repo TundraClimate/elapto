@@ -64,20 +64,36 @@ trait Expand {
     fn expand(self) -> String;
 }
 
+impl<T: ToString> Expand for T {
+    fn expand(self) -> String {
+        self.to_string()
+    }
+}
+
 #[widget]
 #[derive(Default)]
 struct Fragment;
 
 #[widget]
-#[derive(Default)]
 struct Embed {
     expanded: String,
 }
 
+impl Embed {
+    fn new(expanded: String) -> Self {
+        Self { expanded }
+    }
+}
+
 #[widget]
-#[derive(Default)]
 struct Text {
     value: &'static str,
+}
+
+impl Text {
+    fn new(value: &'static str) -> Self {
+        Self { value }
+    }
 }
 
 #[test]
