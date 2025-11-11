@@ -22,6 +22,7 @@ struct Component {
     id: Option<Identifier>,
     class: Option<Class>,
     widget: Box<dyn Widget>,
+    childrens: Vec<Component>,
 }
 
 impl Component {
@@ -30,6 +31,7 @@ impl Component {
             id: None,
             class: None,
             widget: Box::new(widget),
+            childrens: vec![],
         }
     }
 
@@ -41,6 +43,12 @@ impl Component {
 
     fn set_class<T: Into<Class>>(mut self, class: T) -> Self {
         self.class = Some(class.into());
+
+        self
+    }
+
+    fn with_children(mut self, children: Component) -> Self {
+        self.childrens.push(children);
 
         self
     }
@@ -63,7 +71,7 @@ fn test() {
 
     impl Widget for Foo {}
 
-    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>{ "Hello, World!" }</Foo>);
+    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte><Foo /></Foo>);
 
     assert_eq!(format!("{:?}", tag), "".to_string())
 }
