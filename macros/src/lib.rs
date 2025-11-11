@@ -12,3 +12,10 @@ pub fn mk(tokens: TokenStream) -> TokenStream {
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }
+
+#[proc_macro_attribute]
+pub fn widget(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
+    impls::parse_widget(tokens.into())
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}

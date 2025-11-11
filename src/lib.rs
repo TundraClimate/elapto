@@ -11,7 +11,7 @@ mod tui;
 
 use std::fmt::Debug;
 
-pub use elapto_macros::mk;
+pub use elapto_macros::{mk, widget};
 
 type Identifier = String;
 type Class = String;
@@ -62,14 +62,13 @@ impl Debug for Component {
 
 #[test]
 fn test() {
+    #[widget]
     #[derive(Default)]
     struct Foo {
-        pub name: &'static str,
-        pub expr: usize,
-        pub bacte: bool,
+        name: &'static str,
+        expr: usize,
+        bacte: bool,
     }
-
-    impl Widget for Foo {}
 
     let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { "," } "World"</Foo>);
 

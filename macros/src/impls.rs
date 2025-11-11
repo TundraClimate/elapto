@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{Expr, ExprLit, Ident, Lit, LitStr, Token};
+use syn::{Expr, ExprLit, Ident, ItemStruct, Lit, LitStr, Token};
 
 enum Node {
     Tag(Tag),
@@ -387,5 +387,34 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
             #id
             #class
             #(#childrens)*
+    })
+}
+
+pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
+    let item = syn::parse2::<ItemStruct>(tokens)?;
+
+    let attrs = &item.attrs;
+    let vis = &item.vis;
+    let name = &item.ident;
+    let fields = &item.fields;
+
+    let expand_fields = fields
+        .iter()
+        .map(|field| {
+            let attrs = &field.attrs;
+            let ident = &field.ident;
+            let ty = &field.ty;
+
+            quote! { #(#attrs)* pub #ident: #ty, }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(quote! {
+        #(#attrs)*
+        #vis struct #name {
+            #(#expand_fields)*
+        }
+
+        impl crate::Widget for #name {}
     })
 }
