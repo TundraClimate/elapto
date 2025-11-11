@@ -255,8 +255,8 @@ impl ToTokens for Node {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             Self::Tag(tag) => tag.to_tokens(tokens),
-            Self::Inline(_expr) => unimplemented!(),
-            Self::Text(_text) => unimplemented!(),
+            Self::Inline(expr) => expr.to_tokens(tokens),
+            Self::Text(text) => text.to_tokens(tokens),
         }
     }
 }
@@ -287,6 +287,30 @@ impl ToTokens for Tag {
 
         let toks = quote! {
             <#name #id #class #(#props)*>#(#childrens)*</#name>
+        };
+
+        tokens.append_all(toks);
+    }
+}
+
+impl ToTokens for Inline {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let expr = &self.inner;
+
+        let toks = quote! {
+            { #expr }
+        };
+
+        tokens.append_all(toks);
+    }
+}
+
+impl ToTokens for Text {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let text = &self.inner;
+
+        let toks = quote! {
+            #text
         };
 
         tokens.append_all(toks);
@@ -350,6 +374,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
 
             childrens
                 .iter()
+                .filter(|node| matches!(node, Node::Tag(_)))
                 .map(|children| quote! { .with_children(crate::mk!(#children)) })
                 .collect::<Vec<_>>()
         }

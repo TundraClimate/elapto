@@ -71,7 +71,7 @@ fn test() {
 
     impl Widget for Foo {}
 
-    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte><Foo /></Foo>);
+    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { "," } "World"</Foo>);
 
     assert_eq!(format!("{:?}", tag), "".to_string())
 }
