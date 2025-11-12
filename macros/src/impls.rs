@@ -437,7 +437,7 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
             #(#expand_fields)*
         }
 
-        impl crate::Widget for #name {
+        impl crate::WidgetInfo for #name {
             fn type_name(&self) -> &'static str {
                 ::std::any::type_name::<Self>()
             }

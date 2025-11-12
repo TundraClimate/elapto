@@ -16,7 +16,13 @@ pub use elapto_macros::{mk, widget};
 type Identifier = String;
 type Class = String;
 
-trait Widget {
+trait Widget: WidgetInfo {
+    fn render(&self) -> Component {
+        unimplemented!()
+    }
+}
+
+trait WidgetInfo {
     fn type_name(&self) -> &'static str;
 
     fn properties(&self) -> Vec<(&str, String)>;
@@ -106,10 +112,14 @@ impl<T: ToString> Expand for T {
 #[derive(Default)]
 struct Fragment;
 
+impl Widget for Fragment {}
+
 #[widget]
 struct Embed {
     expanded: String,
 }
+
+impl Widget for Embed {}
 
 impl Embed {
     fn new(expanded: String) -> Self {
@@ -121,6 +131,8 @@ impl Embed {
 struct Text {
     value: &'static str,
 }
+
+impl Widget for Text {}
 
 impl Text {
     fn new(value: &'static str) -> Self {
@@ -137,6 +149,8 @@ fn test() {
         expr: usize,
         bacte: bool,
     }
+
+    impl Widget for Foo {}
 
     let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { "," } "World"</Foo>);
 
