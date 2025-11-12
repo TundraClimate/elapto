@@ -422,12 +422,29 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
         })
         .collect::<Vec<_>>();
 
+    let props = fields
+        .iter()
+        .map(|field| {
+            let name = &field.ident;
+
+            quote! { (stringify!(#name), format!("{:?}", self.#name)), }
+        })
+        .collect::<Vec<_>>();
+
     Ok(quote! {
         #(#attrs)*
         #vis struct #name {
             #(#expand_fields)*
         }
 
-        impl crate::Widget for #name {}
+        impl crate::Widget for #name {
+            fn type_name(&self) -> &'static str {
+                ::std::any::type_name::<Self>()
+            }
+
+            fn properties(&self) -> Vec<(&str, String)> {
+                vec![ #(#props)* ]
+            }
+        }
     })
 }

@@ -9,14 +9,18 @@
 mod style;
 mod tui;
 
-use std::fmt::Debug;
+use std::fmt::{Debug, Write};
 
 pub use elapto_macros::{mk, widget};
 
 type Identifier = String;
 type Class = String;
 
-trait Widget {}
+trait Widget {
+    fn type_name(&self) -> &'static str;
+
+    fn properties(&self) -> Vec<(&str, String)>;
+}
 
 struct Component {
     id: Option<Identifier>,
@@ -56,7 +60,35 @@ impl Component {
 
 impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<id={:?} class={:?}>", self.id, self.class)
+        let props = self
+            .widget
+            .properties()
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let childrens = self
+            .childrens
+            .iter()
+            .map(|cpnt| format!("\t{cpnt:?}\n"))
+            .collect::<String>();
+
+        let childrens = if childrens.is_empty() {
+            childrens
+        } else {
+            format!("\n{childrens}")
+        };
+
+        write!(
+            f,
+            "<{} id={:?} class={:?} {}>{}</>",
+            self.widget.type_name(),
+            self.id,
+            self.class,
+            props,
+            childrens,
+        )
     }
 }
 
@@ -108,5 +140,7 @@ fn test() {
 
     let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { "," } "World"</Foo>);
 
-    assert_eq!(format!("{:?}", tag), "".to_string())
+    eprintln!("{:?}", tag);
+
+    panic!();
 }
