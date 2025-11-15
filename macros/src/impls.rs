@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{Expr, ExprLit, Fields, Ident, ItemStruct, Lit, LitStr, Token};
+use syn::{Expr, ExprLit, Fields, Ident, ItemStruct, Lit, LitBool, LitStr, Token};
 
 enum Node {
     Tag(Tag),
@@ -100,15 +100,18 @@ impl Tag {
     }
 }
 
-impl Property {
-    fn into_expr(self) -> Option<Expr> {
-        match self {
-            Self::Text(ls) => Some(Expr::Lit(ExprLit {
+impl From<Property> for Expr {
+    fn from(val: Property) -> Self {
+        match val {
+            Property::Text(ls) => Expr::Lit(ExprLit {
                 attrs: vec![],
                 lit: Lit::Str(ls),
-            })),
-            Self::Bool => None,
-            Self::Expr(expr) => Some(expr),
+            }),
+            Property::Bool => Expr::Lit(ExprLit {
+                attrs: vec![],
+                lit: Lit::Bool(LitBool::new(true, Span::call_site())),
+            }),
+            Property::Expr(expr) => expr,
         }
     }
 }
@@ -169,13 +172,13 @@ impl Parse for Tag {
             };
 
             if k == "id" {
-                id = v.into_expr();
+                id = Some(v.into());
 
                 continue;
             }
 
             if k == "class" {
-                class = v.into_expr();
+                class = Some(v.into());
 
                 continue;
             }
