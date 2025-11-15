@@ -443,6 +443,10 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
             fn properties(&self) -> Vec<(&str, String)> {
                 vec![ #(#props)* ]
             }
+
+            fn gen_hash(&self) -> crate::HashCell {
+                crate::HashCell::new(&self)
+            }
         }
     })
 }

@@ -25,6 +25,15 @@ impl HashCell {
 
         Self(hasher.finish())
     }
+
+    fn combine<H: Hash>(self, other: H) -> Self {
+        let mut hasher = DefaultHasher::new();
+
+        self.0.hash(&mut hasher);
+        other.hash(&mut hasher);
+
+        Self(hasher.finish())
+    }
 }
 
 impl PartialEq<u64> for HashCell {
@@ -58,6 +67,8 @@ trait WidgetInfo {
     fn type_name(&self) -> &'static str;
 
     fn properties(&self) -> Vec<(&str, String)>;
+
+    fn gen_hash(&self) -> HashCell;
 }
 
 struct Component {
@@ -93,6 +104,13 @@ impl Component {
         self.childrens.push(children);
 
         self
+    }
+
+    fn gen_hash(&self) -> HashCell {
+        self.widget
+            .gen_hash()
+            .combine(&self.id)
+            .combine(&self.class)
     }
 }
 
@@ -141,12 +159,13 @@ impl<T: ToString> Expand for T {
 }
 
 #[widget]
-#[derive(Default)]
+#[derive(Default, Hash)]
 struct Fragment;
 
 impl Widget for Fragment {}
 
 #[widget]
+#[derive(Hash)]
 struct Embed {
     expanded: String,
 }
@@ -160,6 +179,7 @@ impl Embed {
 }
 
 #[widget]
+#[derive(Hash)]
 struct Text {
     value: &'static str,
 }
@@ -175,7 +195,7 @@ impl Text {
 #[test]
 fn test() {
     #[widget]
-    #[derive(Default)]
+    #[derive(Default, Hash)]
     struct Foo {
         name: &'static str,
         expr: usize,
