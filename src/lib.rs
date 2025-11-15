@@ -148,6 +148,12 @@ impl Debug for Component {
     }
 }
 
+impl PartialEq for Component {
+    fn eq(&self, other: &Self) -> bool {
+        self.gen_hash() == other.gen_hash()
+    }
+}
+
 trait Expand {
     fn expand(self) -> String;
 }
