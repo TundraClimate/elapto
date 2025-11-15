@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{Expr, ExprLit, Fields, Ident, ItemStruct, Lit, LitBool, LitStr, Token};
+use syn::{Expr, ExprLit, Fields, Ident, ItemStruct, Lit, LitBool, LitStr, Token, braced};
 
 enum Node {
     Tag(Tag),
@@ -151,24 +151,21 @@ impl Parse for Tag {
 
             let k: Ident = input.parse()?;
 
-            let v: Property = if input.peek(Token![=]) && input.peek2(LitStr) {
-                input.parse::<Token![=]>()?;
-                let s: LitStr = input.parse()?;
-
-                Property::Text(s)
-            } else if input.peek(Token![=]) && input.peek2(Brace) {
+            let v = if input.peek(Token![=]) {
                 input.parse::<Token![=]>()?;
 
-                let content;
-                syn::braced!(content in input);
+                match input {
+                    input if input.peek(LitStr) => Property::Text(input.parse()?),
+                    input if input.peek(Brace) => {
+                        let content;
+                        braced!(content in input);
 
-                let e: Expr = content.parse()?;
-
-                Property::Expr(e)
-            } else if !input.peek(Token![=]) {
-                Property::Bool
+                        Property::Expr(content.parse()?)
+                    }
+                    _ => return Err(syn::Error::new(Span::call_site(), "unexpected tokens")),
+                }
             } else {
-                return Err(syn::Error::new(Span::call_site(), "unexpected tokens"));
+                Property::Bool
             };
 
             if k == "id" {
@@ -229,7 +226,7 @@ impl Parse for Node {
             Ok(Node::Text(input.parse()?))
         } else if input.peek(Brace) {
             let content;
-            syn::braced!(content in input);
+            braced!(content in input);
 
             Ok(Node::Inline(content.parse()?))
         } else {
@@ -322,24 +319,25 @@ impl ToTokens for Text {
 
 pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
     let node = syn::parse2::<Node>(tokens)?;
+
     let id = match node {
         Node::Tag(ref tag) => {
             let id = tag.id();
 
             id.map(|id| quote! { .set_id(#id) })
         }
-        Node::Text(_) => None,
-        Node::Inline(_) => None,
+        _ => None,
     };
+
     let class = match node {
         Node::Tag(ref tag) => {
             let class = tag.class();
 
             class.map(|class| quote! { .set_class(#class) })
         }
-        Node::Text(_) => None,
-        Node::Inline(_) => None,
+        _ => None,
     };
+
     let widget = match node {
         Node::Tag(ref tag) => {
             let name = tag.name();
@@ -379,6 +377,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
             quote! { crate::Embed::new(crate::Expand::expand(#expr)) }
         }
     };
+
     let childrens = match node {
         Node::Tag(ref tag) => {
             let childrens = tag.childrens();
@@ -388,8 +387,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
                 .map(|children| quote! { .with_children(crate::mk!(#children)) })
                 .collect::<Vec<_>>()
         }
-        Node::Text(_) => vec![],
-        Node::Inline(_) => vec![],
+        _ => vec![],
     };
 
     Ok(quote! {
