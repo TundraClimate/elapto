@@ -411,28 +411,25 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
     let is_tuple = matches!(fields, Fields::Unnamed(_));
 
     if is_tuple {
-        return Err(syn::Error::new(Span::call_site(), "expected named struct"));
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "expected a named struct",
+        ));
     }
 
-    let expand_fields = fields
+    let (expand_fields, props) = fields
         .iter()
         .map(|field| {
             let attrs = &field.attrs;
             let ident = &field.ident;
             let ty = &field.ty;
 
-            quote! { #(#attrs)* pub #ident: #ty, }
+            (
+                quote! { #(#attrs)* pub #ident: #ty, },
+                quote! { (stringify!(#ident), format!("{:?}", self.#ident)), },
+            )
         })
-        .collect::<Vec<_>>();
-
-    let props = fields
-        .iter()
-        .map(|field| {
-            let name = &field.ident;
-
-            quote! { (stringify!(#name), format!("{:?}", self.#name)), }
-        })
-        .collect::<Vec<_>>();
+        .collect::<(Vec<_>, Vec<_>)>();
 
     Ok(quote! {
         #(#attrs)*
