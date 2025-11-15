@@ -10,8 +10,40 @@ mod style;
 mod tui;
 
 use std::fmt::{Debug, Write};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub use elapto_macros::{mk, widget};
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+struct HashCell(u64);
+
+impl HashCell {
+    fn new<H: Hash>(obj: H) -> Self {
+        let mut hasher = DefaultHasher::new();
+
+        obj.hash(&mut hasher);
+
+        Self(hasher.finish())
+    }
+}
+
+impl PartialEq<u64> for HashCell {
+    fn eq(&self, other: &u64) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<HashCell> for u64 {
+    fn eq(&self, other: &HashCell) -> bool {
+        *self == other.0
+    }
+}
+
+impl Debug for HashCell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:x}", self.0)
+    }
+}
 
 type Identifier = String;
 type Class = String;
