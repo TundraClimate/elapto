@@ -150,6 +150,12 @@ impl Debug for Component {
     }
 }
 
+impl Hash for Component {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.gen_hash().hash(state);
+    }
+}
+
 impl PartialEq for Component {
     fn eq(&self, other: &Self) -> bool {
         self.gen_hash() == other.gen_hash()
@@ -157,12 +163,30 @@ impl PartialEq for Component {
 }
 
 trait Expand {
-    fn expand(self) -> String;
+    fn expand(self) -> Component;
 }
 
-impl<T: ToString> Expand for T {
-    fn expand(self) -> String {
-        self.to_string()
+impl Expand for String {
+    fn expand(self) -> Component {
+        Component::new(Text::new(self))
+    }
+}
+
+impl Expand for &str {
+    fn expand(self) -> Component {
+        Component::new(Text::new(self))
+    }
+}
+
+impl Expand for Component {
+    fn expand(self) -> Component {
+        self
+    }
+}
+
+impl Expand for Vec<Component> {
+    fn expand(self) -> Component {
+        Component::new(Expanded::new(self))
     }
 }
 
@@ -175,28 +199,46 @@ impl Widget for Fragment {}
 #[widget]
 #[derive(Hash)]
 struct Embed {
-    expanded: String,
+    expanded: Component,
 }
 
 impl Widget for Embed {}
 
 impl Embed {
-    fn new(expanded: String) -> Self {
+    fn new(expanded: Component) -> Self {
         Self { expanded }
     }
 }
 
 #[widget]
 #[derive(Hash)]
+struct Expanded {
+    inner: Vec<Component>,
+}
+
+impl Widget for Expanded {}
+
+impl Expanded {
+    fn new<I: IntoIterator<Item = Component>>(inner: I) -> Self {
+        Self {
+            inner: inner.into_iter().collect::<Vec<_>>(),
+        }
+    }
+}
+
+#[widget]
+#[derive(Hash)]
 struct Text {
-    value: &'static str,
+    value: String,
 }
 
 impl Widget for Text {}
 
 impl Text {
-    fn new(value: &'static str) -> Self {
-        Self { value }
+    fn new<S: ToString>(value: S) -> Self {
+        Self {
+            value: value.to_string(),
+        }
     }
 }
 
@@ -212,7 +254,9 @@ fn test() {
 
     impl Widget for Foo {}
 
-    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { "," } "World"</Foo>);
+    let tags = vec![mk!(""), mk!({ "," })];
+
+    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { tags } "World"</Foo>);
 
     eprintln!("{:?}", tag);
 
