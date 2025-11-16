@@ -191,7 +191,13 @@ macro_rules! impl_expand_iter {
     ($($ty:ty),*) => {
         $(impl Expand for $ty {
             fn expand(self) -> Component {
-                Component::new(Expanded::new(self))
+                let arr = self.into_iter().collect::<Vec<Component>>();
+
+                if arr.len() == 1 {
+                    arr[0].clone()
+                } else {
+                    Component::new(Expanded::new(arr))
+                }
             }
         })*
     };
@@ -205,19 +211,23 @@ impl Expand for Component {
 
 impl<const N: usize> Expand for [Component; N] {
     fn expand(self) -> Component {
-        Component::new(Expanded::new(self))
+        if N == 1 {
+            self[0].clone()
+        } else {
+            Component::new(Expanded::new_from_iter(self))
+        }
     }
 }
 
 impl Expand for (Component, Component) {
     fn expand(self) -> Component {
-        Component::new(Expanded::new([self.0, self.1]))
+        Component::new(Expanded::new_from_iter([self.0, self.1]))
     }
 }
 
 impl Expand for (Component, Component, Component) {
     fn expand(self) -> Component {
-        Component::new(Expanded::new([self.0, self.1, self.2]))
+        Component::new(Expanded::new_from_iter([self.0, self.1, self.2]))
     }
 }
 
@@ -256,10 +266,12 @@ struct Expanded {
 impl Widget for Expanded {}
 
 impl Expanded {
-    fn new<I: IntoIterator<Item = Component>>(inner: I) -> Self {
-        Self {
-            inner: inner.into_iter().collect::<Vec<_>>(),
-        }
+    fn new(inner: Vec<Component>) -> Self {
+        Self { inner }
+    }
+
+    fn new_from_iter<I: IntoIterator<Item = Component>>(inner: I) -> Self {
+        Self::new(inner.into_iter().collect::<Vec<_>>())
     }
 }
 
@@ -291,9 +303,8 @@ fn test() {
 
     impl Widget for Foo {}
 
-    let tags = vec![mk!(""), mk!({ "," })];
-
-    let tag = mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { tags } "World"</Foo>);
+    let tag =
+        mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { [mk!(""), mk!(",")] } "World"</Foo>);
 
     eprintln!("{:?}", tag);
 
