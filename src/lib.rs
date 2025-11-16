@@ -118,6 +118,16 @@ impl Component {
 
 impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let id = match self.id {
+            Some(ref id) => format!(" id={id}"),
+            None => "".to_string(),
+        };
+
+        let class = match self.class {
+            Some(ref class) => format!(" class={class}"),
+            None => "".to_string(),
+        };
+
         let props = self
             .widget
             .properties()
@@ -132,20 +142,21 @@ impl Debug for Component {
             .map(|cpnt| format!("\t{cpnt:?}\n"))
             .collect::<String>();
 
-        let childrens = if childrens.is_empty() {
-            childrens
+        let (childrens, close) = if childrens.is_empty() {
+            (childrens, "")
         } else {
-            format!("\n{childrens}")
+            (format!("\n{childrens}"), "</>")
         };
 
         write!(
             f,
-            "<{} id={:?} class={:?} {}>{}</>",
+            "<{}{}{} {}>{}{}",
             self.widget.type_name(),
-            self.id,
-            self.class,
+            id,
+            class,
             props,
             childrens,
+            close,
         )
     }
 }
