@@ -11,6 +11,7 @@ mod tui;
 
 use std::fmt::{Debug, Write};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 
 pub use elapto_macros::{mk, widget};
 
@@ -71,10 +72,11 @@ trait WidgetInfo {
     fn gen_hash(&self) -> HashCell;
 }
 
+#[derive(Clone)]
 struct Component {
     id: Option<Identifier>,
     class: Option<Class>,
-    widget: Box<dyn Widget>,
+    widget: Arc<dyn Widget>,
     childrens: Vec<Component>,
 }
 
@@ -83,7 +85,7 @@ impl Component {
         Self {
             id: None,
             class: None,
-            widget: Box::new(widget),
+            widget: Arc::new(widget),
             childrens: vec![],
         }
     }
