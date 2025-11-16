@@ -166,16 +166,24 @@ trait Expand {
     fn expand(self) -> Component;
 }
 
-impl Expand for String {
-    fn expand(self) -> Component {
-        Component::new(Text::new(self))
-    }
+macro_rules! impl_expand_to_string {
+    ($($ty:ty),*) => {
+        $(impl Expand for $ty {
+            fn expand(self) -> Component {
+                Component::new(Text::new(self))
+            }
+        })*
+    };
 }
 
-impl Expand for &str {
-    fn expand(self) -> Component {
-        Component::new(Text::new(self))
-    }
+macro_rules! impl_expand_iter {
+    ($($ty:ty),*) => {
+        $(impl Expand for $ty {
+            fn expand(self) -> Component {
+                Component::new(Expanded::new(self))
+            }
+        })*
+    };
 }
 
 impl Expand for Component {
@@ -184,11 +192,29 @@ impl Expand for Component {
     }
 }
 
-impl Expand for Vec<Component> {
+impl<const N: usize> Expand for [Component; N] {
     fn expand(self) -> Component {
         Component::new(Expanded::new(self))
     }
 }
+
+impl Expand for (Component, Component) {
+    fn expand(self) -> Component {
+        Component::new(Expanded::new([self.0, self.1]))
+    }
+}
+
+impl Expand for (Component, Component, Component) {
+    fn expand(self) -> Component {
+        Component::new(Expanded::new([self.0, self.1, self.2]))
+    }
+}
+
+impl_expand_to_string!(
+    String, &str, usize, u8, u16, u32, u64, u128, isize, i8, i16, i32, i64, i128, bool, f32, f64,
+    char
+);
+impl_expand_iter!(Vec<Component>);
 
 #[widget]
 #[derive(Default, Hash)]
