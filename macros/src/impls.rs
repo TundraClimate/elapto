@@ -320,28 +320,12 @@ impl ToTokens for Text {
 pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
     let node = syn::parse2::<Node>(tokens)?;
 
-    let id = match node {
-        Node::Tag(ref tag) => {
-            let id = tag.id();
-
-            id.map(|id| quote! { .set_id(#id) })
-        }
-        _ => None,
-    };
-
-    let class = match node {
-        Node::Tag(ref tag) => {
-            let class = tag.class();
-
-            class.map(|class| quote! { .set_class(#class) })
-        }
-        _ => None,
-    };
-
-    let widget = match node {
+    let cpnt = match node {
         Node::Tag(ref tag) => {
             let name = tag.name();
             let props = tag.properties();
+            let id = tag.id().map(|id| quote! { .set_id(#id) });
+            let class = tag.class().map(|class| quote! { .set_class(#class) });
 
             let props = props
                 .iter()
@@ -356,46 +340,39 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
                 })
                 .collect::<Vec<_>>();
 
+            let childrens = tag.childrens();
+
+            let childrens = childrens
+                .iter()
+                .map(|children| quote! { .with_children(crate::mk!(#children)) })
+                .collect::<Vec<_>>();
+
             quote! {
-                {
+                crate::Component::new({
                     let mut p = #name::default();
 
                     #(#props)*
 
                     p
-                }
+                })
+                #id
+                #class
+                #(#childrens)*
             }
         }
         Node::Text(ref text) => {
             let text = &text.inner;
 
-            quote! { crate::Text::new(#text) }
+            quote! { crate::Component::new(crate::Text::new(#text)) }
         }
         Node::Inline(ref expr) => {
             let expr = &expr.inner;
 
-            return Ok(quote! { crate::Expand::expand(#expr) });
+            quote! { crate::Expand::expand(#expr) }
         }
     };
 
-    let childrens = match node {
-        Node::Tag(ref tag) => {
-            let childrens = tag.childrens();
-
-            childrens
-                .iter()
-                .map(|children| quote! { .with_children(crate::mk!(#children)) })
-                .collect::<Vec<_>>()
-        }
-        _ => vec![],
-    };
-
-    Ok(quote! {
-        crate::Component::new(#widget)
-            #id
-            #class
-            #(#childrens)*
-    })
+    Ok(cpnt)
 }
 
 pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
