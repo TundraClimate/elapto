@@ -109,8 +109,9 @@ impl Component {
     }
 
     fn gen_hash(&self) -> HashCell {
-        self.widget
-            .gen_hash()
+        self.childrens
+            .iter()
+            .fold(self.widget.gen_hash(), |acc, cpnt| acc.combine(cpnt))
             .combine(&self.id)
             .combine(&self.class)
     }
