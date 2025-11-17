@@ -196,7 +196,7 @@ macro_rules! impl_expand_iter {
                 if arr.len() == 1 {
                     arr[0].clone()
                 } else {
-                    Component::new(Expanded::new(arr))
+                    Component::new(Embed::new(arr))
                 }
             }
         })*
@@ -214,20 +214,20 @@ impl<const N: usize> Expand for [Component; N] {
         if N == 1 {
             self[0].clone()
         } else {
-            Component::new(Expanded::new_from_iter(self))
+            Component::new(Embed::new_from_iter(self))
         }
     }
 }
 
 impl Expand for (Component, Component) {
     fn expand(self) -> Component {
-        Component::new(Expanded::new_from_iter([self.0, self.1]))
+        Component::new(Embed::new_from_iter([self.0, self.1]))
     }
 }
 
 impl Expand for (Component, Component, Component) {
     fn expand(self) -> Component {
-        Component::new(Expanded::new_from_iter([self.0, self.1, self.2]))
+        Component::new(Embed::new_from_iter([self.0, self.1, self.2]))
     }
 }
 
@@ -246,26 +246,12 @@ impl Widget for Fragment {}
 #[widget]
 #[derive(Hash)]
 struct Embed {
-    expanded: Component,
+    inner: Vec<Component>,
 }
 
 impl Widget for Embed {}
 
 impl Embed {
-    fn new(expanded: Component) -> Self {
-        Self { expanded }
-    }
-}
-
-#[widget]
-#[derive(Hash)]
-struct Expanded {
-    inner: Vec<Component>,
-}
-
-impl Widget for Expanded {}
-
-impl Expanded {
     fn new(inner: Vec<Component>) -> Self {
         Self { inner }
     }

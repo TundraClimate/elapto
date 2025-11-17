@@ -374,7 +374,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
         Node::Inline(ref expr) => {
             let expr = &expr.inner;
 
-            quote! { crate::Embed::new(crate::Expand::expand(#expr)) }
+            return Ok(quote! { crate::Expand::expand(#expr) });
         }
     };
 
