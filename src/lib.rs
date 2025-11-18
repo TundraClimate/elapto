@@ -77,7 +77,7 @@ struct Component {
     id: Option<Identifier>,
     class: Option<Class>,
     widget: Arc<dyn Widget>,
-    childrens: Vec<Component>,
+    children: Vec<Component>,
 }
 
 impl Component {
@@ -86,7 +86,7 @@ impl Component {
             id: None,
             class: None,
             widget: Arc::new(widget),
-            childrens: vec![],
+            children: vec![],
         }
     }
 
@@ -102,14 +102,14 @@ impl Component {
         self
     }
 
-    fn with_children(mut self, children: Component) -> Self {
-        self.childrens.push(children);
+    fn with_child(mut self, children: Component) -> Self {
+        self.children.push(children);
 
         self
     }
 
     fn gen_hash(&self) -> HashCell {
-        self.childrens
+        self.children
             .iter()
             .fold(self.widget.gen_hash(), |acc, cpnt| acc.combine(cpnt))
             .combine(&self.id)
@@ -137,16 +137,16 @@ impl Debug for Component {
             .collect::<Vec<_>>()
             .join(" ");
 
-        let childrens = self
-            .childrens
+        let children = self
+            .children
             .iter()
             .map(|cpnt| format!("\t{cpnt:?}\n"))
             .collect::<String>();
 
-        let (childrens, close) = if childrens.is_empty() {
-            (childrens, "")
+        let (children, close) = if children.is_empty() {
+            (children, "")
         } else {
-            (format!("\n{childrens}"), "</>")
+            (format!("\n{children}"), "</>")
         };
 
         write!(
@@ -156,7 +156,7 @@ impl Debug for Component {
             id,
             class,
             props,
-            childrens,
+            children,
             close,
         )
     }

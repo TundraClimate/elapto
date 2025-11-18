@@ -16,12 +16,12 @@ enum Tag {
         id: Option<Expr>,
         class: Option<Expr>,
         properties: Vec<(Ident, Property)>,
-        childrens: Vec<Node>,
+        children: Vec<Node>,
     },
     FragmentTemplate {
         constant_name: Ident,
         dummy_props: Vec<(Ident, Property)>,
-        childrens: Vec<Node>,
+        children: Vec<Node>,
     },
 }
 
@@ -68,10 +68,10 @@ impl Tag {
         }
     }
 
-    fn childrens(&self) -> &Vec<Node> {
+    fn children(&self) -> &Vec<Node> {
         match self {
-            Self::WidgetTemplate { childrens, .. } => childrens,
-            Self::FragmentTemplate { childrens, .. } => childrens,
+            Self::WidgetTemplate { children, .. } => children,
+            Self::FragmentTemplate { children, .. } => children,
         }
     }
 
@@ -80,22 +80,22 @@ impl Tag {
         id: Option<Expr>,
         class: Option<Expr>,
         properties: Vec<(Ident, Property)>,
-        childrens: Vec<Node>,
+        children: Vec<Node>,
     ) -> Self {
         Self::WidgetTemplate {
             name,
             id,
             class,
             properties,
-            childrens,
+            children,
         }
     }
 
-    fn fragment(childrens: Vec<Node>) -> Self {
+    fn fragment(children: Vec<Node>) -> Self {
         Self::FragmentTemplate {
             constant_name: Ident::new("Fragment", Span::call_site()),
             dummy_props: vec![],
-            childrens,
+            children,
         }
     }
 }
@@ -123,13 +123,13 @@ impl Parse for Tag {
         if input.peek(Token![>]) {
             input.parse::<Token![>]>()?;
 
-            let childrens = parse_childrens(input)?;
+            let children = parse_children(input)?;
 
             input.parse::<Token![<]>()?;
             input.parse::<Token![/]>()?;
             input.parse::<Token![>]>()?;
 
-            return Ok(Self::fragment(childrens));
+            return Ok(Self::fragment(children));
         }
 
         let name: Ident = input.parse()?;
@@ -185,7 +185,7 @@ impl Parse for Tag {
 
         input.parse::<Token![>]>()?;
 
-        let childrens = parse_childrens(input)?;
+        let children = parse_children(input)?;
 
         input.parse::<Token![<]>()?;
         input.parse::<Token![/]>()?;
@@ -198,7 +198,7 @@ impl Parse for Tag {
 
         input.parse::<Token![>]>()?;
 
-        Ok(Self::widget(name, id, class, properties, childrens))
+        Ok(Self::widget(name, id, class, properties, children))
     }
 }
 
@@ -235,8 +235,8 @@ impl Parse for Node {
     }
 }
 
-fn parse_childrens(input: ParseStream) -> syn::Result<Vec<Node>> {
-    let mut childrens = vec![];
+fn parse_children(input: ParseStream) -> syn::Result<Vec<Node>> {
+    let mut children = vec![];
 
     while !input.is_empty() {
         if input.peek(Token![<]) && input.peek2(Token![/]) {
@@ -245,10 +245,10 @@ fn parse_childrens(input: ParseStream) -> syn::Result<Vec<Node>> {
 
         let node: Node = input.parse()?;
 
-        childrens.push(node);
+        children.push(node);
     }
 
-    Ok(childrens)
+    Ok(children)
 }
 
 impl ToTokens for Node {
@@ -279,14 +279,14 @@ impl ToTokens for Tag {
                 quote! { #k=#v }
             })
             .collect::<Vec<_>>();
-        let childrens = self
-            .childrens()
+        let children = self
+            .children()
             .iter()
             .map(|node| quote! { #node })
             .collect::<Vec<_>>();
 
         let toks = quote! {
-            <#name #id #class #(#props)*>#(#childrens)*</#name>
+            <#name #id #class #(#props)*>#(#children)*</#name>
         };
 
         tokens.append_all(toks);
@@ -340,11 +340,11 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
                 })
                 .collect::<Vec<_>>();
 
-            let childrens = tag.childrens();
+            let children = tag.children();
 
-            let childrens = childrens
+            let children = children
                 .iter()
-                .map(|children| quote! { .with_children(crate::mk!(#children)) })
+                .map(|child| quote! { .with_child(crate::mk!(#child)) })
                 .collect::<Vec<_>>();
 
             quote! {
@@ -357,7 +357,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
                 })
                 #id
                 #class
-                #(#childrens)*
+                #(#children)*
             }
         }
         Node::Text(ref text) => {
