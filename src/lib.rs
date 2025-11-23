@@ -59,9 +59,7 @@ type Identifier = String;
 type Class = String;
 
 trait Widget: WidgetInfo {
-    fn render(&self) -> Component {
-        unimplemented!()
-    }
+    fn render(&self, children: Vec<Component>) -> Component;
 }
 
 trait WidgetInfo {
@@ -114,6 +112,10 @@ impl Component {
             .fold(self.widget.gen_hash(), |acc, cpnt| acc.combine(cpnt))
             .combine(&self.id)
             .combine(&self.class)
+    }
+
+    fn render(&self) -> Component {
+        self.widget.render(self.children.clone())
     }
 }
 
@@ -242,7 +244,11 @@ impl_expand_iter!(Vec<Component>);
 #[derive(Default, Hash)]
 struct Fragment;
 
-impl Widget for Fragment {}
+impl Widget for Fragment {
+    fn render(&self, children: Vec<Component>) -> Component {
+        mk!(<> { children } </>)
+    }
+}
 
 #[widget]
 #[derive(Hash)]
@@ -250,7 +256,11 @@ struct Embed {
     inner: Vec<Component>,
 }
 
-impl Widget for Embed {}
+impl Widget for Embed {
+    fn render(&self, children: Vec<Component>) -> Component {
+        mk!({ self.inner.clone() })
+    }
+}
 
 impl Embed {
     fn new(inner: Vec<Component>) -> Self {
@@ -268,7 +278,11 @@ struct Text {
     value: String,
 }
 
-impl Widget for Text {}
+impl Widget for Text {
+    fn render(&self, children: Vec<Component>) -> Component {
+        mk!({ self.value.clone() })
+    }
+}
 
 impl Text {
     fn new<S: ToString>(value: S) -> Self {
@@ -305,7 +319,11 @@ fn test() {
         bacte: bool,
     }
 
-    impl Widget for Foo {}
+    impl Widget for Foo {
+        fn render(&self, children: Vec<Component>) -> Component {
+            mk!(<>"Foo: " { children } </>)
+        }
+    }
 
     let tag =
         mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { [mk!(""), mk!(",")] } "World"</Foo>);
