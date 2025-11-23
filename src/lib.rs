@@ -278,6 +278,23 @@ impl Text {
     }
 }
 
+struct DomParser {}
+
+struct DomContainer(DomNode);
+
+enum DomNode {
+    Layer(Vec<DomNode>),
+    Text(String),
+    NewLine,
+    None,
+}
+
+impl DomParser {
+    fn parse_dom(&mut self, original_component: Component) -> DomContainer {
+        unimplemented!()
+    }
+}
+
 #[test]
 fn test() {
     #[widget]
