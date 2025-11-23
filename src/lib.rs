@@ -292,8 +292,6 @@ impl Text {
     }
 }
 
-struct DomParser {}
-
 struct DomContainer(DomNode);
 
 enum DomNode {
@@ -303,10 +301,8 @@ enum DomNode {
     None,
 }
 
-impl DomParser {
-    fn parse_dom(&mut self, original_component: Component) -> DomContainer {
-        unimplemented!()
-    }
+fn parse_dom(original_component: Component) -> DomContainer {
+    unimplemented!()
 }
 
 #[test]
