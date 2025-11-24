@@ -256,7 +256,7 @@ struct Fragment {
 
 impl Widget for Fragment {
     fn render(&self, children: Vec<Component>) -> Component {
-        unreachable!()
+        panic!("Cannot call a 'render' method in the Fragment widget")
     }
 
     fn to_dom(&self) -> Option<DomNode> {
@@ -291,7 +291,7 @@ struct Text {
 
 impl Widget for Text {
     fn render(&self, children: Vec<Component>) -> Component {
-        unreachable!()
+        panic!("Cannot call a 'render' method in the Text widget")
     }
 
     fn to_dom(&self) -> Option<DomNode> {
@@ -328,7 +328,7 @@ impl DomAst {
     }
 }
 
-fn parse_dom(original_component: Component) -> DomContainer {
+fn parse_layer(original_component: Component) -> DomContainer {
     let root_hash = original_component.gen_hash();
     let expanded_root = original_component.render();
 
@@ -372,7 +372,7 @@ fn test() {
     let tag =
         mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { [mk!(""), mk!(",")] } "World"</Foo>);
 
-    eprintln!("{:?}", parse_dom(tag));
+    eprintln!("{:?}", parse_layer(tag));
 
     panic!();
 }
