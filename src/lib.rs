@@ -307,13 +307,13 @@ impl Text {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct DomContainer(DomAst);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct DomAst(HashCell, DomNode);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum DomNode {
     Layer(Box<DomAst>),
     Vector(Vec<DomAst>),
