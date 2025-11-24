@@ -60,6 +60,10 @@ type Class = String;
 
 trait Widget: WidgetInfo {
     fn render(&self, children: Vec<Component>) -> Component;
+
+    fn to_dom(&self, children: &[Component]) -> Option<DomNode> {
+        None
+    }
 }
 
 trait WidgetInfo {
@@ -112,6 +116,10 @@ impl Component {
             .fold(self.widget.gen_hash(), |acc, cpnt| acc.combine(cpnt))
             .combine(&self.id)
             .combine(&self.class)
+    }
+
+    fn to_dom_node(&self) -> Option<DomNode> {
+        self.widget.to_dom(&self.children)
     }
 
     fn render(&self) -> Component {
@@ -248,6 +256,19 @@ impl Widget for Fragment {
     fn render(&self, children: Vec<Component>) -> Component {
         mk!(<> { children } </>)
     }
+
+    fn to_dom(&self, children: &[Component]) -> Option<DomNode> {
+        if children.is_empty() {
+            Some(DomNode::Ignore)
+        } else {
+            Some(DomNode::Vector(
+                children
+                    .iter()
+                    .map(|cpnt| parse_component(cpnt.clone()))
+                    .collect::<Vec<_>>(),
+            ))
+        }
+    }
 }
 
 #[widget]
@@ -259,6 +280,19 @@ struct Embed {
 impl Widget for Embed {
     fn render(&self, children: Vec<Component>) -> Component {
         mk!({ self.inner.clone() })
+    }
+
+    fn to_dom(&self, _children: &[Component]) -> Option<DomNode> {
+        if self.inner.is_empty() {
+            Some(DomNode::Ignore)
+        } else {
+            Some(DomNode::Vector(
+                self.inner
+                    .iter()
+                    .map(|cpnt| parse_component(cpnt.clone()))
+                    .collect::<Vec<_>>(),
+            ))
+        }
     }
 }
 
@@ -282,6 +316,10 @@ impl Widget for Text {
     fn render(&self, children: Vec<Component>) -> Component {
         mk!({ self.value.clone() })
     }
+
+    fn to_dom(&self, _children: &[Component]) -> Option<DomNode> {
+        Some(DomNode::Text(self.value.clone()))
+    }
 }
 
 impl Text {
@@ -292,17 +330,50 @@ impl Text {
     }
 }
 
-struct DomContainer(DomNode);
+#[derive(Debug)]
+struct DomContainer(DomAst);
 
+#[derive(Debug)]
+struct DomAst(HashCell, DomNode);
+
+#[derive(Debug)]
 enum DomNode {
-    Layer(Vec<DomNode>),
+    Layer(Box<DomAst>),
+    Vector(Vec<DomAst>),
     Text(String),
     NewLine,
-    None,
+    Ignore,
+}
+
+impl DomAst {
+    fn new(cell: HashCell, node: DomNode) -> Self {
+        Self(cell, node)
+    }
 }
 
 fn parse_dom(original_component: Component) -> DomContainer {
-    unimplemented!()
+    let root_hash = original_component.gen_hash();
+    let expanded_root = original_component.render();
+
+    let ast = DomAst::new(
+        root_hash,
+        DomNode::Layer(Box::new(parse_component(expanded_root))),
+    );
+
+    DomContainer(ast)
+}
+
+fn parse_component(cpnt: Component) -> DomAst {
+    let cell = cpnt.gen_hash();
+
+    if let Some(dom) = cpnt.to_dom_node() {
+        return DomAst::new(cell, dom);
+    }
+
+    DomAst::new(
+        cell,
+        DomNode::Layer(Box::new(parse_component(cpnt.render()))),
+    )
 }
 
 #[test]
@@ -324,7 +395,7 @@ fn test() {
     let tag =
         mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { [mk!(""), mk!(",")] } "World"</Foo>);
 
-    eprintln!("{:?}", tag);
+    eprintln!("{:?}", parse_dom(tag));
 
     panic!();
 }
