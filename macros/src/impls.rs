@@ -20,8 +20,8 @@ enum Tag {
     },
     FragmentTemplate {
         constant_name: Ident,
-        dummy_props: Vec<(Ident, Property)>,
-        children: Vec<Node>,
+        children_props: Vec<(Ident, Property)>,
+        dummy_children: Vec<Node>,
     },
 }
 
@@ -64,14 +64,20 @@ impl Tag {
     fn properties(&self) -> &Vec<(Ident, Property)> {
         match self {
             Self::WidgetTemplate { properties, .. } => properties,
-            Self::FragmentTemplate { dummy_props, .. } => dummy_props,
+            Self::FragmentTemplate {
+                children_props: dummy_props,
+                ..
+            } => dummy_props,
         }
     }
 
     fn children(&self) -> &Vec<Node> {
         match self {
             Self::WidgetTemplate { children, .. } => children,
-            Self::FragmentTemplate { children, .. } => children,
+            Self::FragmentTemplate {
+                dummy_children: children,
+                ..
+            } => children,
         }
     }
 
@@ -91,11 +97,11 @@ impl Tag {
         }
     }
 
-    fn fragment(children: Vec<Node>) -> Self {
+    fn fragment(child_props: Vec<(Ident, Property)>) -> Self {
         Self::FragmentTemplate {
             constant_name: Ident::new("Fragment", Span::call_site()),
-            dummy_props: vec![],
-            children,
+            children_props: child_props,
+            dummy_children: vec![],
         }
     }
 }
@@ -129,7 +135,17 @@ impl Parse for Tag {
             input.parse::<Token![/]>()?;
             input.parse::<Token![>]>()?;
 
-            return Ok(Self::fragment(children));
+            let children = children
+                .into_iter()
+                .map(|node| quote! { crate::mk!(#node) })
+                .collect::<Vec<_>>();
+            let children = syn::parse2::<Expr>(quote! { vec![ #(#children),* ] })?;
+            let child_props = vec![(
+                Ident::new("children", Span::call_site()),
+                Property::Expr(children),
+            )];
+
+            return Ok(Self::fragment(child_props));
         }
 
         let name: Ident = input.parse()?;

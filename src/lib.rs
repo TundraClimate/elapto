@@ -61,7 +61,7 @@ type Class = String;
 trait Widget: WidgetInfo {
     fn render(&self, children: Vec<Component>) -> Component;
 
-    fn to_dom(&self, children: &[Component]) -> Option<DomNode> {
+    fn to_dom(&self) -> Option<DomNode> {
         None
     }
 }
@@ -119,7 +119,7 @@ impl Component {
     }
 
     fn to_dom_node(&self) -> Option<DomNode> {
-        self.widget.to_dom(&self.children)
+        self.widget.to_dom()
     }
 
     fn render(&self) -> Component {
@@ -207,7 +207,7 @@ macro_rules! impl_expand_iter {
                 if arr.len() == 1 {
                     arr[0].clone()
                 } else {
-                    Component::new(Embed::new(arr))
+                    Component::new(Fragment::new(arr))
                 }
             }
         })*
@@ -225,20 +225,20 @@ impl<const N: usize> Expand for [Component; N] {
         if N == 1 {
             self[0].clone()
         } else {
-            Component::new(Embed::new_from_iter(self))
+            Component::new(Fragment::new_from_iter(self))
         }
     }
 }
 
 impl Expand for (Component, Component) {
     fn expand(self) -> Component {
-        Component::new(Embed::new_from_iter([self.0, self.1]))
+        Component::new(Fragment::new_from_iter([self.0, self.1]))
     }
 }
 
 impl Expand for (Component, Component, Component) {
     fn expand(self) -> Component {
-        Component::new(Embed::new_from_iter([self.0, self.1, self.2]))
+        Component::new(Fragment::new_from_iter([self.0, self.1, self.2]))
     }
 }
 
@@ -250,19 +250,21 @@ impl_expand_iter!(Vec<Component>);
 
 #[widget]
 #[derive(Default, Hash)]
-struct Fragment;
+struct Fragment {
+    children: Vec<Component>,
+}
 
 impl Widget for Fragment {
     fn render(&self, children: Vec<Component>) -> Component {
-        mk!(<> { children } </>)
+        unreachable!()
     }
 
-    fn to_dom(&self, children: &[Component]) -> Option<DomNode> {
-        if children.is_empty() {
+    fn to_dom(&self) -> Option<DomNode> {
+        if self.children.is_empty() {
             Some(DomNode::Ignore)
         } else {
             Some(DomNode::Vector(
-                children
+                self.children
                     .iter()
                     .map(|cpnt| parse_component(cpnt.clone()))
                     .collect::<Vec<_>>(),
@@ -271,38 +273,13 @@ impl Widget for Fragment {
     }
 }
 
-#[widget]
-#[derive(Hash)]
-struct Embed {
-    inner: Vec<Component>,
-}
-
-impl Widget for Embed {
-    fn render(&self, children: Vec<Component>) -> Component {
-        mk!({ self.inner.clone() })
+impl Fragment {
+    fn new(children: Vec<Component>) -> Self {
+        Self { children }
     }
 
-    fn to_dom(&self, _children: &[Component]) -> Option<DomNode> {
-        if self.inner.is_empty() {
-            Some(DomNode::Ignore)
-        } else {
-            Some(DomNode::Vector(
-                self.inner
-                    .iter()
-                    .map(|cpnt| parse_component(cpnt.clone()))
-                    .collect::<Vec<_>>(),
-            ))
-        }
-    }
-}
-
-impl Embed {
-    fn new(inner: Vec<Component>) -> Self {
-        Self { inner }
-    }
-
-    fn new_from_iter<I: IntoIterator<Item = Component>>(inner: I) -> Self {
-        Self::new(inner.into_iter().collect::<Vec<_>>())
+    fn new_from_iter<I: IntoIterator<Item = Component>>(children: I) -> Self {
+        Self::new(children.into_iter().collect::<Vec<_>>())
     }
 }
 
@@ -314,10 +291,10 @@ struct Text {
 
 impl Widget for Text {
     fn render(&self, children: Vec<Component>) -> Component {
-        mk!({ self.value.clone() })
+        unreachable!()
     }
 
-    fn to_dom(&self, _children: &[Component]) -> Option<DomNode> {
+    fn to_dom(&self) -> Option<DomNode> {
         Some(DomNode::Text(self.value.clone()))
     }
 }
