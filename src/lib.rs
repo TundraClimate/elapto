@@ -55,8 +55,15 @@ impl Debug for HashCell {
     }
 }
 
-type Identifier = String;
-type Class = String;
+#[derive(Hash, Clone)]
+struct Identifier {
+    id: String,
+}
+
+#[derive(Hash, Clone)]
+struct Class {
+    class: String,
+}
 
 trait Widget: WidgetInfo {
     fn render(&self, children: Vec<Component>) -> Component;
@@ -130,12 +137,12 @@ impl Component {
 impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let id = match self.id {
-            Some(ref id) => format!(" id={id}"),
+            Some(Identifier { ref id }) => format!(" id={id}"),
             None => "".to_string(),
         };
 
         let class = match self.class {
-            Some(ref class) => format!(" class={class}"),
+            Some(Class { ref class }) => format!(" class={class}"),
             None => "".to_string(),
         };
 
