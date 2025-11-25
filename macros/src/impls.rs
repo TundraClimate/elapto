@@ -165,9 +165,12 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
 
                     p
                 })
-                #id
-                #class
-                #(#children)*
+                .with_sub_props(|p| {
+                    p
+                    #id
+                    #class
+                    #(#children)*
+                })
             }
         }
         Node::Text(ref text) => {

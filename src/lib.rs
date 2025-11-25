@@ -81,24 +81,20 @@ trait WidgetInfo {
     fn gen_hash(&self) -> HashCell;
 }
 
-#[derive(Clone)]
-struct Component {
+#[derive(Clone, Hash)]
+struct SubProperties {
     id: Option<Identifier>,
     class: Option<Class>,
-    widget: Arc<dyn Widget>,
     children: Vec<Component>,
 }
 
-impl Component {
-    fn new<W: Widget + 'static>(widget: W) -> Self {
-        Self {
-            id: None,
-            class: None,
-            widget: Arc::new(widget),
-            children: vec![],
-        }
-    }
+#[derive(Clone)]
+struct Component {
+    widget: Arc<dyn Widget>,
+    sub_props: SubProperties,
+}
 
+impl SubProperties {
     fn set_id<T: Into<Identifier>>(mut self, id: T) -> Self {
         self.id = Some(id.into());
 
@@ -116,13 +112,28 @@ impl Component {
 
         self
     }
+}
+
+impl Component {
+    fn new<W: Widget + 'static>(widget: W) -> Self {
+        Self {
+            widget: Arc::new(widget),
+            sub_props: SubProperties {
+                id: None,
+                class: None,
+                children: vec![],
+            },
+        }
+    }
+
+    fn with_sub_props<F: Fn(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
+        self.sub_props = f(self.sub_props);
+
+        self
+    }
 
     fn gen_hash(&self) -> HashCell {
-        self.children
-            .iter()
-            .fold(self.widget.gen_hash(), |acc, cpnt| acc.combine(cpnt))
-            .combine(&self.id)
-            .combine(&self.class)
+        self.widget.gen_hash().combine(&self.sub_props)
     }
 
     fn to_dom_node(&self) -> Option<DomNode> {
@@ -130,18 +141,18 @@ impl Component {
     }
 
     fn render(&self) -> Component {
-        self.widget.render(self.children.clone())
+        self.widget.render(self.sub_props.children.clone())
     }
 }
 
 impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let id = match self.id {
+        let id = match self.sub_props.id {
             Some(Identifier { ref id }) => format!(" id={id}"),
             None => "".to_string(),
         };
 
-        let class = match self.class {
+        let class = match self.sub_props.class {
             Some(Class { ref class }) => format!(" class={class}"),
             None => "".to_string(),
         };
@@ -155,6 +166,7 @@ impl Debug for Component {
             .join(" ");
 
         let children = self
+            .sub_props
             .children
             .iter()
             .map(|cpnt| format!("\t{cpnt:?}\n"))
