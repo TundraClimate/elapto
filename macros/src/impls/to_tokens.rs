@@ -16,8 +16,8 @@ impl ToTokens for Node {
 impl ToTokens for Tag {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let name = self.name();
-        let id = self.id().map(|id| quote! { id=#id });
-        let class = self.class().map(|class| quote! { class=#class });
+        let id = self.id().map(|(_, id)| quote! { id=#id });
+        let class = self.class().map(|(_, class)| quote! { class=#class });
         let props = self
             .properties()
             .iter()

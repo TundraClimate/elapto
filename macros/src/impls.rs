@@ -14,8 +14,8 @@ enum Node {
 enum Tag {
     WidgetTemplate {
         name: Ident,
-        id: Option<Expr>,
-        class: Option<Expr>,
+        id: Option<(Ident, Expr)>,
+        class: Option<(Ident, Expr)>,
         properties: Vec<(Ident, Property)>,
         children: Vec<Node>,
     },
@@ -48,14 +48,14 @@ impl Tag {
         }
     }
 
-    fn id(&self) -> Option<&Expr> {
+    fn id(&self) -> Option<&(Ident, Expr)> {
         match self {
             Self::WidgetTemplate { id, .. } => id.as_ref(),
             Self::FragmentTemplate { .. } => None,
         }
     }
 
-    fn class(&self) -> Option<&Expr> {
+    fn class(&self) -> Option<&(Ident, Expr)> {
         match self {
             Self::WidgetTemplate { class, .. } => class.as_ref(),
             Self::FragmentTemplate { .. } => None,
@@ -84,8 +84,8 @@ impl Tag {
 
     fn widget(
         name: Ident,
-        id: Option<Expr>,
-        class: Option<Expr>,
+        id: Option<(Ident, Expr)>,
+        class: Option<(Ident, Expr)>,
         properties: Vec<(Ident, Property)>,
         children: Vec<Node>,
     ) -> Self {
@@ -130,8 +130,12 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
         Node::Tag(ref tag) => {
             let name = tag.name();
             let props = tag.properties();
-            let id = tag.id().map(|id| quote! { .set_id(#id) });
-            let class = tag.class().map(|class| quote! { .set_class(#class) });
+            let id = tag
+                .id()
+                .map(|(id_ident, id)| quote! { .set_id(crate::Identifier { #id_ident: From::from(#id) }) });
+            let class = tag.class().map(
+                |(class_ident, class)| quote! { .set_class(crate::Class { #class_ident: From::from(#class) }) },
+            );
 
             let props = props
                 .iter()

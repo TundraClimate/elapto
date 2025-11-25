@@ -50,8 +50,8 @@ impl Parse for Tag {
         }
 
         let name: Ident = input.parse()?;
-        let mut id: Option<Expr> = None;
-        let mut class: Option<Expr> = None;
+        let mut id: Option<(Ident, Expr)> = None;
+        let mut class: Option<(Ident, Expr)> = None;
         let mut properties = vec![];
 
         while !input.is_empty() {
@@ -86,13 +86,13 @@ impl Parse for Tag {
             };
 
             if k == "id" {
-                id = Some(v.into());
+                id = Some((k, v.into()));
 
                 continue;
             }
 
             if k == "class" {
-                class = Some(v.into());
+                class = Some((k, v.into()));
 
                 continue;
             }
