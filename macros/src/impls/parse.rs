@@ -1,5 +1,4 @@
 use proc_macro2::Span;
-use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
 use syn::{Expr, Ident, LitStr, Token, braced};
@@ -36,17 +35,7 @@ impl Parse for Tag {
             input.parse::<Token![/]>()?;
             input.parse::<Token![>]>()?;
 
-            let children = children
-                .into_iter()
-                .map(|node| quote! { crate::mk!(#node) })
-                .collect::<Vec<_>>();
-            let children = syn::parse2::<Expr>(quote! { vec![ #(#children),* ] })?;
-            let child_props = vec![(
-                Ident::new("children", Span::call_site()),
-                Property::Expr(children),
-            )];
-
-            return Ok(Self::fragment(child_props));
+            return Ok(Self::fragment(children));
         }
 
         let name: Ident = input.parse()?;

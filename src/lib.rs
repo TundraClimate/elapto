@@ -88,7 +88,7 @@ impl Component {
         }
     }
 
-    fn with_sub_props<F: Fn(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
+    fn with_sub_props<F: FnOnce(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
         self.sub_props = f(self.sub_props);
 
         self

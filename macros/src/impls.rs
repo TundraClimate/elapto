@@ -21,8 +21,8 @@ enum Tag {
     },
     FragmentTemplate {
         constant_name: Ident,
-        children_props: Vec<(Ident, Property)>,
-        dummy_children: Vec<Node>,
+        dummy_props: Vec<(Ident, Property)>,
+        children: Vec<Node>,
     },
 }
 
@@ -65,20 +65,14 @@ impl Tag {
     fn properties(&self) -> &Vec<(Ident, Property)> {
         match self {
             Self::WidgetTemplate { properties, .. } => properties,
-            Self::FragmentTemplate {
-                children_props: dummy_props,
-                ..
-            } => dummy_props,
+            Self::FragmentTemplate { dummy_props, .. } => dummy_props,
         }
     }
 
     fn children(&self) -> &Vec<Node> {
         match self {
             Self::WidgetTemplate { children, .. } => children,
-            Self::FragmentTemplate {
-                dummy_children: children,
-                ..
-            } => children,
+            Self::FragmentTemplate { children, .. } => children,
         }
     }
 
@@ -98,11 +92,11 @@ impl Tag {
         }
     }
 
-    fn fragment(child_props: Vec<(Ident, Property)>) -> Self {
+    fn fragment(children: Vec<Node>) -> Self {
         Self::FragmentTemplate {
             constant_name: Ident::new("Fragment", Span::call_site()),
-            children_props: child_props,
-            dummy_children: vec![],
+            dummy_props: vec![],
+            children,
         }
     }
 }
@@ -152,15 +146,25 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
 
             let children = tag.children();
 
-            let children = children
-                .iter()
-                .map(|child| quote! { .with_child(crate::mk!(#child)) })
-                .collect::<Vec<_>>();
+            let fragment_patch = if name == "Fragment" {
+                Some(quote! { p.children = vec![ #(crate::mk!(#children)),* ]; })
+            } else {
+                None
+            };
+
+            let children = match fragment_patch {
+                Some(_) => vec![],
+                None => children
+                    .iter()
+                    .map(|child| quote! { .with_child(crate::mk!(#child)) })
+                    .collect::<Vec<_>>(),
+            };
 
             quote! {
                 crate::Component::new({
                     let mut p = #name::default();
 
+                    #fragment_patch
                     #(#props)*
 
                     p
