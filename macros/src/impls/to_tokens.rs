@@ -25,7 +25,7 @@ impl ToTokens for Tag {
                 let v = match v {
                     Property::Text(ls) => quote! { #ls },
                     Property::Bool => quote! { true },
-                    Property::Expr(expr) => quote! { #expr },
+                    Property::Expr(expr) => quote! { { #expr } },
                 };
 
                 quote! { #k=#v }
