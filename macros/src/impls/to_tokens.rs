@@ -1,14 +1,14 @@
 use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt, quote};
 
-use crate::impls::{Inline, Node, Property, Tag, Text};
+use crate::impls::{Node, Property, Tag};
 
 impl ToTokens for Node {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             Self::Tag(tag) => tag.to_tokens(tokens),
-            Self::Inline(expr) => expr.to_tokens(tokens),
-            Self::Text(text) => text.to_tokens(tokens),
+            Self::Inline(expr) => tokens.append_all(quote! { { #expr } }),
+            Self::Text(text) => tokens.append_all(quote! { #text }),
         }
     }
 }
@@ -39,30 +39,6 @@ impl ToTokens for Tag {
 
         let toks = quote! {
             <#name #id #class #(#props)*>#(#children)*</#name>
-        };
-
-        tokens.append_all(toks);
-    }
-}
-
-impl ToTokens for Inline {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let expr = &self.inner;
-
-        let toks = quote! {
-            { #expr }
-        };
-
-        tokens.append_all(toks);
-    }
-}
-
-impl ToTokens for Text {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let text = &self.inner;
-
-        let toks = quote! {
-            #text
         };
 
         tokens.append_all(toks);

@@ -7,8 +7,8 @@ mod to_tokens;
 
 enum Node {
     Tag(Tag),
-    Inline(Inline),
-    Text(Text),
+    Inline(Expr),
+    Text(LitStr),
 }
 
 enum Tag {
@@ -24,14 +24,6 @@ enum Tag {
         dummy_props: Vec<(Ident, Property)>,
         children: Vec<Node>,
     },
-}
-
-struct Inline {
-    inner: Expr,
-}
-
-struct Text {
-    inner: LitStr,
 }
 
 enum Property {
@@ -183,13 +175,9 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
             }
         }
         Node::Text(ref text) => {
-            let text = &text.inner;
-
             quote! { elapto::Component::new(elapto::Text::new(#text)) }
         }
         Node::Inline(ref expr) => {
-            let expr = &expr.inner;
-
             quote! { elapto::Expand::expand(#expr) }
         }
     };

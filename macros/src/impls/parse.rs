@@ -3,7 +3,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
 use syn::{Expr, Ident, LitStr, Token, braced};
 
-use crate::impls::{Inline, Node, Property, Tag, Text};
+use crate::impls::{Node, Property, Tag};
 
 impl Parse for Node {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -105,22 +105,6 @@ impl Parse for Tag {
         input.parse::<Token![>]>()?;
 
         Ok(Self::widget(name, id, class, properties, children))
-    }
-}
-
-impl Parse for Inline {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            inner: input.parse()?,
-        })
-    }
-}
-
-impl Parse for Text {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            inner: input.parse()?,
-        })
     }
 }
 
