@@ -1,4 +1,4 @@
-#![warn(missing_docs)]
+/* #![warn(missing_docs)] */
 #![allow(unused)]
 
 //! The layer based TUI rendering library.
@@ -10,24 +10,24 @@ mod hash_cell;
 mod style;
 mod tui;
 
-use hash_cell::HashCell;
 use std::fmt::{Debug, Write};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
 pub use elapto_macros::{mk, widget};
+pub use hash_cell::HashCell;
 
 #[derive(Hash, Clone)]
-struct Identifier {
+pub struct Identifier {
     id: String,
 }
 
 #[derive(Hash, Clone)]
-struct Class {
+pub struct Class {
     class: String,
 }
 
-trait Widget: WidgetInfo {
+pub trait Widget: WidgetInfo {
     fn render(&self, children: Vec<Component>) -> Component;
 
     fn to_dom(&self) -> Option<DomNode> {
@@ -35,7 +35,7 @@ trait Widget: WidgetInfo {
     }
 }
 
-trait WidgetInfo {
+pub trait WidgetInfo {
     fn type_name(&self) -> &'static str;
 
     fn properties(&self) -> Vec<(&str, String)>;
@@ -44,32 +44,32 @@ trait WidgetInfo {
 }
 
 #[derive(Clone, Hash)]
-struct SubProperties {
+pub struct SubProperties {
     id: Option<Identifier>,
     class: Option<Class>,
     children: Vec<Component>,
 }
 
 #[derive(Clone)]
-struct Component {
+pub struct Component {
     widget: Arc<dyn Widget>,
     sub_props: SubProperties,
 }
 
 impl SubProperties {
-    fn set_id<T: Into<Identifier>>(mut self, id: T) -> Self {
+    pub fn set_id<T: Into<Identifier>>(mut self, id: T) -> Self {
         self.id = Some(id.into());
 
         self
     }
 
-    fn set_class<T: Into<Class>>(mut self, class: T) -> Self {
+    pub fn set_class<T: Into<Class>>(mut self, class: T) -> Self {
         self.class = Some(class.into());
 
         self
     }
 
-    fn with_child(mut self, children: Component) -> Self {
+    pub fn with_child(mut self, children: Component) -> Self {
         self.children.push(children);
 
         self
@@ -77,7 +77,7 @@ impl SubProperties {
 }
 
 impl Component {
-    fn new<W: Widget + 'static>(widget: W) -> Self {
+    pub fn new<W: Widget + 'static>(widget: W) -> Self {
         Self {
             widget: Arc::new(widget),
             sub_props: SubProperties {
@@ -88,7 +88,7 @@ impl Component {
         }
     }
 
-    fn with_sub_props<F: FnOnce(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
+    pub fn with_sub_props<F: FnOnce(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
         self.sub_props = f(self.sub_props);
 
         self
@@ -165,7 +165,7 @@ impl PartialEq for Component {
     }
 }
 
-trait Expand {
+pub trait Expand {
     fn expand(self) -> Component;
 }
 
@@ -229,10 +229,9 @@ impl_expand_to_string!(
 );
 impl_expand_iter!(Vec<Component>);
 
-#[widget]
 #[derive(Default, Hash)]
-struct Fragment {
-    children: Vec<Component>,
+pub struct Fragment {
+    pub children: Vec<Component>,
 }
 
 impl Widget for Fragment {
@@ -254,6 +253,20 @@ impl Widget for Fragment {
     }
 }
 
+impl WidgetInfo for Fragment {
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
+
+    fn properties(&self) -> Vec<(&str, String)> {
+        vec![(stringify!(children), format!("{:?}", self.children))]
+    }
+
+    fn gen_hash(&self) -> HashCell {
+        HashCell::new(self)
+    }
+}
+
 impl Fragment {
     fn new(children: Vec<Component>) -> Self {
         Self { children }
@@ -264,10 +277,9 @@ impl Fragment {
     }
 }
 
-#[widget]
 #[derive(Hash)]
-struct Text {
-    value: String,
+pub struct Text {
+    pub value: String,
 }
 
 impl Widget for Text {
@@ -280,8 +292,22 @@ impl Widget for Text {
     }
 }
 
+impl WidgetInfo for Text {
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
+
+    fn properties(&self) -> Vec<(&str, String)> {
+        vec![(stringify!(value), format!("{:?}", self.value))]
+    }
+
+    fn gen_hash(&self) -> HashCell {
+        HashCell::new(self)
+    }
+}
+
 impl Text {
-    fn new<S: ToString>(value: S) -> Self {
+    pub fn new<S: ToString>(value: S) -> Self {
         Self {
             value: value.to_string(),
         }
@@ -292,10 +318,10 @@ impl Text {
 struct DomContainer(DomAst);
 
 #[derive(Debug, PartialEq)]
-struct DomAst(HashCell, DomNode);
+pub struct DomAst(HashCell, DomNode);
 
 #[derive(Debug, PartialEq)]
-enum DomNode {
+pub enum DomNode {
     Layer(Box<DomAst>),
     Vector(Vec<DomAst>),
     Text(String),
@@ -332,28 +358,4 @@ fn parse_component(cpnt: Component) -> DomAst {
         cell,
         DomNode::Layer(Box::new(parse_component(cpnt.render()))),
     )
-}
-
-#[test]
-fn test() {
-    #[widget]
-    #[derive(Default, Hash)]
-    struct Foo {
-        name: &'static str,
-        expr: usize,
-        bacte: bool,
-    }
-
-    impl Widget for Foo {
-        fn render(&self, children: Vec<Component>) -> Component {
-            mk!(<>"Foo: " { children } </>)
-        }
-    }
-
-    let tag =
-        mk!(<Foo name="John" expr={ 12 + 8 } bacte>"Hello" { [mk!(""), mk!(",")] } "World"</Foo>);
-
-    eprintln!("{:?}", parse_layer(tag));
-
-    panic!();
 }

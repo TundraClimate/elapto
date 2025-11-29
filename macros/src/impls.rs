@@ -126,9 +126,9 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
             let props = tag.properties();
             let id = tag
                 .id()
-                .map(|(id_ident, id)| quote! { .set_id(crate::Identifier { #id_ident: From::from(#id) }) });
+                .map(|(id_ident, id)| quote! { .set_id(elapto::Identifier { #id_ident: From::from(#id) }) });
             let class = tag.class().map(
-                |(class_ident, class)| quote! { .set_class(crate::Class { #class_ident: From::from(#class) }) },
+                |(class_ident, class)| quote! { .set_class(elapto::Class { #class_ident: From::from(#class) }) },
             );
 
             let props = props
@@ -147,7 +147,7 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
             let children = tag.children();
 
             let fragment_patch = if name == "Fragment" {
-                Some(quote! { p.children = vec![ #(crate::mk!(#children)),* ]; })
+                Some(quote! { p.children = vec![ #(elapto::mk!(#children)),* ]; })
             } else {
                 None
             };
@@ -156,12 +156,17 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
                 Some(_) => vec![],
                 None => children
                     .iter()
-                    .map(|child| quote! { .with_child(crate::mk!(#child)) })
+                    .map(|child| quote! { .with_child(elapto::mk!(#child)) })
                     .collect::<Vec<_>>(),
             };
 
+            let name = match fragment_patch {
+                Some(_) => quote! { elapto::Fragment },
+                None => quote! { #name },
+            };
+
             quote! {
-                crate::Component::new({
+                elapto::Component::new({
                     let mut p = #name::default();
 
                     #fragment_patch
@@ -180,12 +185,12 @@ pub(crate) fn parse_tag(tokens: TokenStream) -> syn::Result<TokenStream> {
         Node::Text(ref text) => {
             let text = &text.inner;
 
-            quote! { crate::Component::new(crate::Text::new(#text)) }
+            quote! { elapto::Component::new(elapto::Text::new(#text)) }
         }
         Node::Inline(ref expr) => {
             let expr = &expr.inner;
 
-            quote! { crate::Expand::expand(#expr) }
+            quote! { elapto::Expand::expand(#expr) }
         }
     };
 
@@ -229,7 +234,7 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
             #(#expand_fields)*
         }
 
-        impl crate::WidgetInfo for #name {
+        impl elapto::WidgetInfo for #name {
             fn type_name(&self) -> &'static str {
                 ::std::any::type_name::<Self>()
             }
@@ -238,8 +243,8 @@ pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
                 vec![ #(#props)* ]
             }
 
-            fn gen_hash(&self) -> crate::HashCell {
-                crate::HashCell::new(&self)
+            fn gen_hash(&self) -> elapto::HashCell {
+                elapto::HashCell::new(&self)
             }
         }
     })

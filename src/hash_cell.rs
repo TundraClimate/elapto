@@ -2,10 +2,10 @@ use std::fmt::{Debug, Write};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct HashCell(u64);
+pub struct HashCell(u64);
 
 impl HashCell {
-    pub(crate) fn new<H: Hash>(obj: H) -> Self {
+    pub fn new<H: Hash>(obj: H) -> Self {
         let mut hasher = DefaultHasher::new();
 
         obj.hash(&mut hasher);
@@ -13,7 +13,7 @@ impl HashCell {
         Self(hasher.finish())
     }
 
-    pub(crate) fn combine<H: Hash>(self, other: H) -> Self {
+    pub fn combine<H: Hash>(self, other: H) -> Self {
         let mut hasher = DefaultHasher::new();
 
         self.0.hash(&mut hasher);
