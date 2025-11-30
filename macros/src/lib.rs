@@ -8,7 +8,7 @@ mod impls;
 
 #[proc_macro]
 pub fn mk(tokens: TokenStream) -> TokenStream {
-    impls::parse_tag(tokens.into())
+    impls::parse_object(tokens.into())
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }

@@ -1,21 +1,21 @@
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{Expr, Ident, LitStr, Token, braced};
+use syn::{Ident, LitStr, Token, braced};
 
-use crate::impls::{Node, Property, Tag};
+use crate::impls::{Fragment, Inline, Named, Object, ObjectArray, Property, Tag, Text};
 
-impl Parse for Node {
+impl Parse for Object {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(Token![<]) {
-            Ok(Node::Tag(input.parse()?))
+            Ok(Object::Tag(input.parse()?))
         } else if input.peek(LitStr) {
-            Ok(Node::Text(input.parse()?))
+            Ok(Object::Text(Text(input.parse()?)))
         } else if input.peek(Brace) {
             let content;
             braced!(content in input);
 
-            Ok(Node::Inline(content.parse()?))
+            Ok(Object::Inline(Inline(content.parse()?)))
         } else {
             Err(syn::Error::new(Span::call_site(), "unexpected token"))
         }
@@ -24,74 +24,93 @@ impl Parse for Node {
 
 impl Parse for Tag {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        if !input.peek(Token![<]) {
+            Err(syn::Error::new(Span::call_site(), "expected '<'"))
+        } else if input.peek2(Ident) {
+            Ok(Tag::Named(input.parse()?))
+        } else if input.peek2(Token![>]) {
+            Ok(Tag::Fragment(input.parse()?))
+        } else {
+            Err(syn::Error::new(Span::call_site(), "unexpected token"))
+        }
+    }
+}
+
+impl Parse for Named {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         input.parse::<Token![<]>()?;
 
-        if input.peek(Token![>]) {
-            input.parse::<Token![>]>()?;
-
-            let children = parse_children(input)?;
-
-            input.parse::<Token![<]>()?;
-            input.parse::<Token![/]>()?;
-            input.parse::<Token![>]>()?;
-
-            return Ok(Self::fragment(children));
-        }
-
         let name: Ident = input.parse()?;
-        let mut id: Option<(Ident, Expr)> = None;
-        let mut class: Option<(Ident, Expr)> = None;
+
+        let mut id = None;
+        let mut class = None;
         let mut properties = vec![];
 
         while !input.is_empty() {
-            if input.peek(Token![/]) && input.peek2(Token![>]) {
-                input.parse::<Token![/]>()?;
-                input.parse::<Token![>]>()?;
-
-                return Ok(Self::widget(name, id, class, properties, vec![]));
-            }
-
-            if input.peek(Token![>]) {
+            if input.peek(Token![/]) || input.peek(Token![>]) {
                 break;
             }
 
-            let k: Ident = input.parse()?;
+            let key: Ident = input.parse()?;
 
-            let v = if input.peek(Token![=]) {
+            let prop = if input.peek(Token![=]) {
                 input.parse::<Token![=]>()?;
 
-                match input {
-                    input if input.peek(LitStr) => Property::Text(input.parse()?),
-                    input if input.peek(Brace) => {
-                        let content;
-                        braced!(content in input);
+                if input.peek(LitStr) {
+                    Property::Text(input.parse()?)
+                } else if input.peek(Brace) {
+                    let content;
+                    braced!(content in input);
 
-                        Property::Expr(content.parse()?)
-                    }
-                    _ => return Err(syn::Error::new(Span::call_site(), "unexpected tokens")),
+                    Property::Expr(content.parse()?)
+                } else {
+                    return Err(syn::Error::new(
+                        Span::call_site(),
+                        "expected value (e.g. \"\", { expr })",
+                    ));
                 }
             } else {
                 Property::Bool
             };
 
-            if k == "id" {
-                id = Some((k, v.into()));
+            if key == "id" {
+                id = Some((key, prop.into()));
 
                 continue;
             }
 
-            if k == "class" {
-                class = Some((k, v.into()));
+            if key == "class" {
+                class = Some((key, prop.into()));
 
                 continue;
             }
 
-            properties.push((k, v));
+            properties.push((key, prop));
+        }
+
+        let (id_ident, id) = id.unzip();
+        let (class_ident, class) = class.unzip();
+
+        if input.peek(Token![/]) {
+            input.parse::<Token![/]>()?;
+            input.parse::<Token![>]>()?;
+
+            let children = ObjectArray(vec![]);
+
+            return Ok(Self {
+                name,
+                id_ident,
+                id,
+                class,
+                class_ident,
+                properties,
+                children,
+            });
         }
 
         input.parse::<Token![>]>()?;
 
-        let children = parse_children(input)?;
+        let children: ObjectArray = syn::parse2(in_tag(input)?)?;
 
         input.parse::<Token![<]>()?;
         input.parse::<Token![/]>()?;
@@ -99,27 +118,78 @@ impl Parse for Tag {
         let close_name: Ident = input.parse()?;
 
         if name != close_name {
-            return Err(syn::Error::new_spanned(close_name, "closing tag mismatch"));
+            return Err(syn::Error::new(Span::call_site(), "mismatch close tag"));
         }
 
         input.parse::<Token![>]>()?;
 
-        Ok(Self::widget(name, id, class, properties, children))
+        Ok(Self {
+            name,
+            id_ident,
+            id,
+            class_ident,
+            class,
+            properties,
+            children,
+        })
     }
 }
 
-fn parse_children(input: ParseStream) -> syn::Result<Vec<Node>> {
-    let mut children = vec![];
+impl Parse for Fragment {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        input.parse::<Token![<]>()?;
+        input.parse::<Token![>]>()?;
 
-    while !input.is_empty() {
-        if input.peek(Token![<]) && input.peek2(Token![/]) {
-            break;
+        let children: ObjectArray = syn::parse2(in_tag(input)?)?;
+
+        input.parse::<Token![<]>()?;
+        input.parse::<Token![/]>()?;
+        input.parse::<Token![>]>()?;
+
+        Ok(Self(children))
+    }
+}
+
+impl Parse for ObjectArray {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut children = vec![];
+
+        while !input.is_empty() {
+            let obj: Object = input.parse()?;
+
+            children.push(obj);
         }
 
-        let node: Node = input.parse()?;
+        Ok(Self(children))
+    }
+}
 
-        children.push(node);
+fn in_tag(input: ParseStream) -> syn::Result<TokenStream> {
+    let mut tokens = TokenStream::new();
+
+    let mut depth = 0usize;
+
+    while !input.is_empty() {
+        if input.peek(Token![<]) {
+            if input.peek2(Token![/]) {
+                if depth == 0 {
+                    break;
+                } else {
+                    depth -= 1;
+                }
+            } else {
+                depth += 1;
+            }
+        }
+
+        let tt: TokenTree = input.parse()?;
+
+        tokens.extend(Some(tt));
     }
 
-    Ok(children)
+    if depth != 0 {
+        return Err(syn::Error::new(Span::call_site(), "unclosed tag"));
+    }
+
+    Ok(tokens)
 }

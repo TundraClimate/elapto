@@ -19,12 +19,12 @@ pub use hash_cell::HashCell;
 
 #[derive(Hash, Clone)]
 pub struct Identifier {
-    id: String,
+    pub id: String,
 }
 
 #[derive(Hash, Clone)]
 pub struct Class {
-    class: String,
+    pub class: String,
 }
 
 pub trait Widget: WidgetInfo {
@@ -57,20 +57,20 @@ pub struct Component {
 }
 
 impl SubProperties {
-    pub fn set_id<T: Into<Identifier>>(mut self, id: T) -> Self {
+    pub fn with_id<T: Into<Identifier>>(mut self, id: T) -> Self {
         self.id = Some(id.into());
 
         self
     }
 
-    pub fn set_class<T: Into<Class>>(mut self, class: T) -> Self {
+    pub fn with_class<T: Into<Class>>(mut self, class: T) -> Self {
         self.class = Some(class.into());
 
         self
     }
 
-    pub fn with_child(mut self, children: Component) -> Self {
-        self.children.push(children);
+    pub fn with_children(mut self, children: Vec<Component>) -> Self {
+        self.children = children;
 
         self
     }
@@ -268,7 +268,7 @@ impl WidgetInfo for Fragment {
 }
 
 impl Fragment {
-    fn new(children: Vec<Component>) -> Self {
+    pub fn new(children: Vec<Component>) -> Self {
         Self { children }
     }
 

@@ -1,9 +1,9 @@
-use elapto::{Component, Widget, mk, widget};
+use elapto::*;
 
 #[widget]
 #[derive(Default, Hash)]
 struct Foo {
-    name: &'static str,
+    name: String,
     number: usize,
     sick: bool,
 }
