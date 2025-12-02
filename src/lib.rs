@@ -211,15 +211,19 @@ impl<const N: usize> Expand for [Component; N] {
     }
 }
 
-impl Expand for (Component, Component) {
+impl<T: Expand> Expand for (T, T) {
     fn expand(self) -> Component {
-        Component::new(Fragment::new_from_iter([self.0, self.1]))
+        Component::new(Fragment::new_from_iter([self.0.expand(), self.1.expand()]))
     }
 }
 
-impl Expand for (Component, Component, Component) {
+impl<T: Expand> Expand for (T, T, T) {
     fn expand(self) -> Component {
-        Component::new(Fragment::new_from_iter([self.0, self.1, self.2]))
+        Component::new(Fragment::new_from_iter([
+            self.0.expand(),
+            self.1.expand(),
+            self.2.expand(),
+        ]))
     }
 }
 
