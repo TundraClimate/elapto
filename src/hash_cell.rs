@@ -5,6 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 pub struct HashCell(u64);
 
 impl HashCell {
+    #[inline]
     pub fn new<H: Hash>(obj: H) -> Self {
         let mut hasher = DefaultHasher::new();
 
@@ -13,6 +14,7 @@ impl HashCell {
         Self(hasher.finish())
     }
 
+    #[inline]
     pub fn combine<H: Hash>(self, other: H) -> Self {
         let mut hasher = DefaultHasher::new();
 
