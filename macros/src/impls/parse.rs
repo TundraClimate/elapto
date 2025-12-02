@@ -4,7 +4,8 @@ use syn::token::Brace;
 use syn::{Fields, Ident, ItemStruct, LitStr, Token, braced};
 
 use crate::impls::{
-    Fragment, Inline, Named, Object, ObjectArray, Property, Tag, Text, WidgetStruct,
+    Fragment, Inline, Named, Object, ObjectArray, Property, Tag, Text, WidgetInitializer,
+    WidgetStruct,
 };
 
 impl Parse for Object {
@@ -194,6 +195,40 @@ fn in_tag(input: ParseStream) -> syn::Result<TokenStream> {
     }
 
     Ok(tokens)
+}
+
+impl Parse for WidgetInitializer {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut default = false;
+        let mut custom_hash = false;
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+
+            match ident {
+                d if d == "default" => default = true,
+                d if d == "custom_hash" => custom_hash = true,
+                _ => {
+                    return Err(syn::Error::new(
+                        Span::call_site(),
+                        format!(
+                            "expected 'default' or 'custom_hash' but found the '{}'",
+                            ident
+                        ),
+                    ));
+                }
+            }
+
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+
+        Ok(Self {
+            default,
+            custom_hash,
+        })
+    }
 }
 
 impl Parse for WidgetStruct {

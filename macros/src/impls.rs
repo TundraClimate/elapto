@@ -55,6 +55,11 @@ impl From<Property> for Expr {
 
 struct ObjectArray(Vec<Object>);
 
+struct WidgetInitializer {
+    default: bool,
+    custom_hash: bool,
+}
+
 struct WidgetStruct {
     attrs: Vec<Attribute>,
     vis: Visibility,
@@ -69,9 +74,10 @@ pub(crate) fn parse_object(tokens: TokenStream) -> syn::Result<TokenStream> {
     Ok(toks)
 }
 
-pub(crate) fn parse_widget(tokens: TokenStream) -> syn::Result<TokenStream> {
+pub(crate) fn parse_widget(attr: TokenStream, tokens: TokenStream) -> syn::Result<TokenStream> {
+    let initializer: WidgetInitializer = syn::parse2(attr)?;
     let item: WidgetStruct = syn::parse2(tokens)?;
-    let toks = expand::expand_widget_struct(item);
+    let toks = expand::expand_widget_struct(initializer, item);
 
     Ok(toks)
 }

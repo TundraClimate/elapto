@@ -1,7 +1,6 @@
 use elapto::*;
 
-#[widget]
-#[derive(Default, Hash)]
+#[widget(default)]
 struct Foo {
     name: String,
     number: usize,

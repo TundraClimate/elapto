@@ -229,7 +229,7 @@ impl_expand_to_string!(
 );
 impl_expand_iter!(Vec<Component>);
 
-#[derive(Default, Hash)]
+#[widget(default)]
 pub struct Fragment {
     pub children: Vec<Component>,
 }
@@ -253,20 +253,6 @@ impl Widget for Fragment {
     }
 }
 
-impl WidgetInfo for Fragment {
-    fn type_name(&self) -> &'static str {
-        std::any::type_name::<Self>()
-    }
-
-    fn properties(&self) -> Vec<(&str, String)> {
-        vec![(stringify!(children), format!("{:?}", self.children))]
-    }
-
-    fn gen_hash(&self) -> HashCell {
-        HashCell::new(self)
-    }
-}
-
 impl Fragment {
     pub fn new(children: Vec<Component>) -> Self {
         Self { children }
@@ -277,7 +263,7 @@ impl Fragment {
     }
 }
 
-#[derive(Hash)]
+#[widget(default)]
 pub struct Text {
     pub value: String,
 }
@@ -289,20 +275,6 @@ impl Widget for Text {
 
     fn to_dom(&self) -> Option<DomNode> {
         Some(DomNode::Text(self.value.clone()))
-    }
-}
-
-impl WidgetInfo for Text {
-    fn type_name(&self) -> &'static str {
-        std::any::type_name::<Self>()
-    }
-
-    fn properties(&self) -> Vec<(&str, String)> {
-        vec![(stringify!(value), format!("{:?}", self.value))]
-    }
-
-    fn gen_hash(&self) -> HashCell {
-        HashCell::new(self)
     }
 }
 

@@ -14,8 +14,8 @@ pub fn mk(tokens: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn widget(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
-    impls::parse_widget(tokens.into())
+pub fn widget(attr: TokenStream, tokens: TokenStream) -> TokenStream {
+    impls::parse_widget(attr.into(), tokens.into())
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }

@@ -1,4 +1,6 @@
-use crate::impls::{Fragment, Inline, Named, Object, Property, Tag, Text, WidgetStruct};
+use crate::impls::{
+    Fragment, Inline, Named, Object, Property, Tag, Text, WidgetInitializer, WidgetStruct,
+};
 
 use proc_macro_crate::FoundCrate;
 use proc_macro2::{Span, TokenStream};
@@ -130,6 +132,22 @@ pub(crate) fn expand_object(obj: Object) -> TokenStream {
     }
 }
 
+impl Expand for WidgetInitializer {
+    fn expand(self) -> TokenStream {
+        let derive_default = self.default;
+        let derive_hash = !self.custom_hash;
+
+        let default = derive_default.then_some(quote! { Default });
+        let custom_hash = derive_hash.then_some(quote! { Hash });
+
+        let comma = (derive_default && derive_hash).then_some(quote! { , });
+
+        quote! {
+            #[derive(#default #comma #custom_hash)]
+        }
+    }
+}
+
 impl Expand for WidgetStruct {
     fn expand(self) -> TokenStream {
         let crate_ident = crate_ident();
@@ -176,6 +194,12 @@ impl Expand for WidgetStruct {
     }
 }
 
-pub(crate) fn expand_widget_struct(wd: WidgetStruct) -> TokenStream {
-    wd.expand()
+pub(crate) fn expand_widget_struct(init: WidgetInitializer, wd: WidgetStruct) -> TokenStream {
+    let init = init.expand();
+    let item = wd.expand();
+
+    quote! {
+        #init
+        #item
+    }
 }
