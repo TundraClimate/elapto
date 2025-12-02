@@ -1,4 +1,4 @@
-use crate::impls::{Fragment, Inline, Named, Object, Property, Tag, Text};
+use crate::impls::{Fragment, Inline, Named, Object, Property, Tag, Text, WidgetStruct};
 
 use proc_macro_crate::FoundCrate;
 use proc_macro2::{Span, TokenStream};
@@ -10,7 +10,7 @@ fn crate_ident() -> TokenStream {
         FoundCrate::Itself => quote! { crate },
         FoundCrate::Name(name) => {
             let ident = Ident::new(&name, Span::call_site());
-            quote! { #ident }
+            quote! { ::#ident }
         }
     }
 }
@@ -128,4 +128,54 @@ pub(crate) fn expand_object(obj: Object) -> TokenStream {
         Object::Inline(expr) => expr.expand(),
         Object::Text(text) => text.expand(),
     }
+}
+
+impl Expand for WidgetStruct {
+    fn expand(self) -> TokenStream {
+        let crate_ident = crate_ident();
+
+        let attrs = self.attrs;
+        let name = self.name;
+        let vis = self.vis;
+        let fields = self.fields;
+
+        let (expand_fields, props) = fields
+            .iter()
+            .map(|field| {
+                let attrs = &field.attrs;
+                let ident = &field.ident;
+                let ty = &field.ty;
+
+                (
+                    quote! { #(#attrs)* pub #ident: #ty, },
+                    quote! { (stringify!(#ident), format!("{:?}", self.#ident)), },
+                )
+            })
+            .collect::<(Vec<_>, Vec<_>)>();
+
+        quote! {
+            #(#attrs)*
+            #vis struct #name {
+                #(#expand_fields)*
+            }
+
+            impl #crate_ident::WidgetInfo for #name {
+                fn type_name(&self) -> &'static str {
+                    ::std::any::type_name::<Self>()
+                }
+
+                fn properties(&self) -> Vec<(&str, String)> {
+                    vec![ #(#props)* ]
+                }
+
+                fn gen_hash(&self) -> #crate_ident::HashCell {
+                    #crate_ident::HashCell::new(&self)
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn expand_widget_struct(wd: WidgetStruct) -> TokenStream {
+    wd.expand()
 }

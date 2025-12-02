@@ -1,9 +1,11 @@
 use proc_macro2::{Span, TokenStream, TokenTree};
 use syn::parse::{Parse, ParseStream};
 use syn::token::Brace;
-use syn::{Ident, LitStr, Token, braced};
+use syn::{Fields, Ident, ItemStruct, LitStr, Token, braced};
 
-use crate::impls::{Fragment, Inline, Named, Object, ObjectArray, Property, Tag, Text};
+use crate::impls::{
+    Fragment, Inline, Named, Object, ObjectArray, Property, Tag, Text, WidgetStruct,
+};
 
 impl Parse for Object {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -192,4 +194,29 @@ fn in_tag(input: ParseStream) -> syn::Result<TokenStream> {
     }
 
     Ok(tokens)
+}
+
+impl Parse for WidgetStruct {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let item: ItemStruct = input.parse()?;
+
+        if matches!(item.fields, Fields::Unnamed(_)) {
+            return Err(syn::Error::new(
+                Span::call_site(),
+                "expected a named struct",
+            ));
+        }
+
+        let attrs = item.attrs;
+        let vis = item.vis;
+        let name = item.ident;
+        let fields = item.fields;
+
+        Ok(WidgetStruct {
+            attrs,
+            vis,
+            name,
+            fields,
+        })
+    }
 }
