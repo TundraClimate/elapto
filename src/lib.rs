@@ -1,4 +1,4 @@
-#![warn(missing_docs)]
+/* #![warn(missing_docs)] */
 #![allow(unused)]
 
 //! The layer based TUI rendering library.
@@ -6,391 +6,332 @@
 //! **THIS CRATE IS CURRENTLY BETA VERSION**  
 //! README and this docs.rs is BETA ver, Information will update always.  
 
-mod macros;
+mod hash_cell;
 mod style;
 mod tui;
 
-use crossterm::execute;
-use std::any;
-use std::fmt::Debug;
+use std::fmt::{Debug, Write};
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::io;
-use std::marker::PhantomData;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
-use std::thread;
-use std::time::{Duration, Instant};
-use style::StyleSheet;
-use tui::{Restore, TuiInitialize};
+use std::sync::Arc;
 
-/// An identifier used to distinguish between the same Widget.
-pub type Identity = &'static str;
+pub use elapto_macros::{mk, widget};
+pub use hash_cell::HashCell;
 
-/// A class used to specify the style.
-pub type Class = &'static str;
-
-/// A trait that defines the required values in [Widget].
-pub trait WidgetProp: Default {
-    /// An identifier used to distinguish between the same Widget.
-    fn id(&self) -> Identity;
-
-    /// A class used to specify the style.
-    fn class(&self) -> Class;
+#[derive(Hash, Clone)]
+pub struct Identifier {
+    pub id: String,
 }
 
-/// A trait for rendering unit.
-pub trait Widget: Hash {
-    /// Properties assigned to a `Widget`.
-    type Prop: WidgetProp;
+#[derive(Hash, Clone)]
+pub struct Class {
+    pub class: String,
+}
 
-    /// Hashes the state of the `Widget`.
-    ///
-    /// The returned value is used to control rendering.  
-    /// If the previously returned value matches the current one, rendering will be suppressed.
-    fn key(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
+pub trait Widget: WidgetInfo {
+    fn render(&self, children: Vec<Component>) -> Component;
 
-        self.hash(&mut hasher);
-
-        hasher.finish()
+    fn to_dom(&self) -> Option<DomNode> {
+        None
     }
-
-    /// Make a `Widget` from the `Self::Prop`.
-    ///
-    /// It is almost the same as `new()`.
-    fn make(prop: Self::Prop) -> Self;
-
-    /// Represents the rendering process using a `Component`.
-    ///
-    /// Note that `self` is reinitialized on each render.
-    fn render(&self, _children: &[Component]) -> Component;
 }
 
-trait WidgetCore: Send + Sync {
-    fn render_with(&self, children: &[Component]) -> Component;
+pub trait WidgetInfo {
     fn type_name(&self) -> &'static str;
-    fn key(&self) -> u64;
+
+    fn properties(&self) -> Vec<(&str, String)>;
+
+    fn gen_hash(&self) -> HashCell;
 }
 
-struct WidgetWrapper<W: Widget> {
-    inner: W,
-}
-
-impl<W: Widget> WidgetWrapper<W> {
-    fn new(inner: W) -> Self {
-        Self { inner }
-    }
-}
-
-impl<W: Widget + Send + Sync> WidgetCore for WidgetWrapper<W> {
-    fn render_with(&self, children: &[Component]) -> Component {
-        self.inner.render(children)
-    }
-
-    fn type_name(&self) -> &'static str {
-        any::type_name::<W>()
-    }
-
-    fn key(&self) -> u64 {
-        self.inner.key()
-    }
-}
-
-/// A tree structure node.
-///
-/// A `Component` is a struct that wraps a [Widget] and represents the information required for rendering in a tree structure.  
-/// For direct usage: please see [mk!] macro.
-pub struct Component {
-    widget: Arc<dyn WidgetCore>,
+#[derive(Clone, Hash)]
+pub struct SubProperties {
+    id: Option<Identifier>,
+    class: Option<Class>,
     children: Vec<Component>,
 }
 
-impl Hash for Component {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.widget.key().hash(state);
-        self.children.iter().for_each(|c| c.hash(state))
+#[derive(Clone)]
+pub struct Component {
+    widget: Arc<dyn Widget>,
+    sub_props: SubProperties,
+}
+
+impl SubProperties {
+    pub fn with_id<T: Into<Identifier>>(mut self, id: T) -> Self {
+        self.id = Some(id.into());
+
+        self
+    }
+
+    pub fn with_class<T: Into<Class>>(mut self, class: T) -> Self {
+        self.class = Some(class.into());
+
+        self
+    }
+
+    pub fn with_children(mut self, children: Vec<Component>) -> Self {
+        self.children = children;
+
+        self
+    }
+}
+
+impl Component {
+    pub fn new<W: Widget + 'static>(widget: W) -> Self {
+        Self {
+            widget: Arc::new(widget),
+            sub_props: SubProperties {
+                id: None,
+                class: None,
+                children: vec![],
+            },
+        }
+    }
+
+    pub fn with_sub_props<F: FnOnce(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
+        self.sub_props = f(self.sub_props);
+
+        self
+    }
+
+    fn gen_hash(&self) -> HashCell {
+        self.widget.gen_hash().combine(&self.sub_props)
+    }
+
+    fn to_dom_node(&self) -> Option<DomNode> {
+        self.widget.to_dom()
+    }
+
+    fn render(&self) -> Component {
+        self.widget.render(self.sub_props.children.clone())
     }
 }
 
 impl Debug for Component {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Component")
-            .field("type", &self.widget.type_name())
-            .field("key", &self.widget.key())
-            .field("children", &format!("{:?}", &self.children))
-            .finish()
+        let id = match self.sub_props.id {
+            Some(Identifier { ref id }) => format!(" id={id}"),
+            None => "".to_string(),
+        };
+
+        let class = match self.sub_props.class {
+            Some(Class { ref class }) => format!(" class={class}"),
+            None => "".to_string(),
+        };
+
+        let props = self
+            .widget
+            .properties()
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let children = self
+            .sub_props
+            .children
+            .iter()
+            .map(|cpnt| format!("\t{cpnt:?}\n"))
+            .collect::<String>();
+
+        let (children, close) = if children.is_empty() {
+            (children, "")
+        } else {
+            (format!("\n{children}"), "</>")
+        };
+
+        write!(
+            f,
+            "<{}{}{} {}>{}{}",
+            self.widget.type_name(),
+            id,
+            class,
+            props,
+            children,
+            close,
+        )
+    }
+}
+
+impl Hash for Component {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.gen_hash().hash(state);
     }
 }
 
 impl PartialEq for Component {
     fn eq(&self, other: &Self) -> bool {
-        self.widget.type_name() == other.widget.type_name()
-            && self.widget.key() == other.widget.key()
-            && self.children.len() == other.children.len()
-            && self
-                .children
-                .iter()
-                .zip(other.children.iter())
-                .all(|(a, b)| a == b)
+        self.gen_hash() == other.gen_hash()
     }
 }
 
-impl Eq for Component {}
+pub trait Expand {
+    fn expand(self) -> Component;
+}
 
-impl Clone for Component {
-    fn clone(&self) -> Self {
-        Self {
-            widget: self.widget.clone(),
-            children: self.children.clone(),
+macro_rules! impl_expand_to_string {
+    ($($ty:ty),*) => {
+        $(impl Expand for $ty {
+            fn expand(self) -> Component {
+                Component::new(Text::new(self))
+            }
+        })*
+    };
+}
+
+macro_rules! impl_expand_iter {
+    ($($ty:ty),*) => {
+        $(impl Expand for $ty {
+            fn expand(self) -> Component {
+                let arr = self.into_iter().collect::<Vec<Component>>();
+
+                if arr.len() == 1 {
+                    arr[0].clone()
+                } else {
+                    Component::new(Fragment::new(arr))
+                }
+            }
+        })*
+    };
+}
+
+impl Expand for Component {
+    fn expand(self) -> Component {
+        self
+    }
+}
+
+impl<const N: usize> Expand for [Component; N] {
+    fn expand(self) -> Component {
+        if N == 1 {
+            self[0].clone()
+        } else {
+            Component::new(Fragment::new_from_iter(self))
         }
     }
 }
 
-impl Component {
-    fn new<W>(widget: W, children: Vec<Component>) -> Self
-    where
-        W: Widget + Send + Sync + 'static,
-    {
-        Self {
-            widget: Arc::new(WidgetWrapper::new(widget)),
-            children,
+impl<T: Expand> Expand for (T, T) {
+    fn expand(self) -> Component {
+        Component::new(Fragment::new_from_iter([self.0.expand(), self.1.expand()]))
+    }
+}
+
+impl<T: Expand> Expand for (T, T, T) {
+    fn expand(self) -> Component {
+        Component::new(Fragment::new_from_iter([
+            self.0.expand(),
+            self.1.expand(),
+            self.2.expand(),
+        ]))
+    }
+}
+
+impl_expand_to_string!(
+    String, &str, usize, u8, u16, u32, u64, u128, isize, i8, i16, i32, i64, i128, bool, f32, f64,
+    char
+);
+impl_expand_iter!(Vec<Component>);
+
+#[widget(default)]
+pub struct Fragment {
+    pub children: Vec<Component>,
+}
+
+impl Widget for Fragment {
+    fn render(&self, children: Vec<Component>) -> Component {
+        panic!("Cannot call a 'render' method in the Fragment widget")
+    }
+
+    fn to_dom(&self) -> Option<DomNode> {
+        if self.children.is_empty() {
+            Some(DomNode::Ignore)
+        } else {
+            Some(DomNode::Vector(
+                self.children
+                    .iter()
+                    .map(|cpnt| parse_component(cpnt.clone()))
+                    .collect::<Vec<_>>(),
+            ))
         }
     }
+}
 
-    fn render(&self) -> Component {
-        self.widget.render_with(&self.children)
+impl Fragment {
+    pub fn new(children: Vec<Component>) -> Self {
+        Self { children }
+    }
+
+    fn new_from_iter<I: IntoIterator<Item = Component>>(children: I) -> Self {
+        Self::new(children.into_iter().collect::<Vec<_>>())
     }
 }
 
-/// Make a component while setups its properties.
-///
-/// Properties will be equals `Default` if not changed by `setup`.  
-/// Consider using the [mk!] macro.
-pub fn make_component<W, F>(setup: F, children: Vec<Component>) -> Component
-where
-    W: Widget + Send + Sync + 'static,
-    F: FnOnce(&mut W::Prop),
-{
-    let mut prop = W::Prop::default();
-
-    setup(&mut prop);
-
-    Component::new(W::make(prop), children)
-}
-
-prop! {
-    #[derive(Default)]
-    struct ContainerProp {}
-}
-
-#[derive(Hash)]
-struct Container {}
-
-impl Widget for Container {
-    type Prop = ContainerProp;
-
-    fn render(&self, _children: &[Component]) -> Component {
-        unreachable!()
-    }
-
-    fn make(_prop: Self::Prop) -> Self {
-        Self {}
-    }
-}
-
-prop! {
-    #[derive(Default)]
-    struct TextProp {
-        v: String
-    }
-}
-
-#[derive(Hash)]
-struct Text {
-    text: String,
+#[widget(default)]
+pub struct Text {
+    pub value: String,
 }
 
 impl Widget for Text {
-    type Prop = TextProp;
-
-    fn render(&self, _children: &[Component]) -> Component {
-        unreachable!()
+    fn render(&self, children: Vec<Component>) -> Component {
+        panic!("Cannot call a 'render' method in the Text widget")
     }
 
-    fn make(prop: Self::Prop) -> Self {
-        Self { text: prop.v }
+    fn to_dom(&self) -> Option<DomNode> {
+        Some(DomNode::Text(self.value.clone()))
     }
 }
 
-struct EngineBuilder {
-    initialize: Option<TuiInitialize>,
-    restore: Option<Restore>,
-    render_tick: Duration,
-    style: StyleSheet,
-}
-
-impl Default for EngineBuilder {
-    fn default() -> Self {
+impl Text {
+    pub fn new<S: ToString>(value: S) -> Self {
         Self {
-            initialize: None,
-            restore: None,
-            render_tick: Duration::from_millis(60),
-            style: StyleSheet::new(),
+            value: value.to_string(),
         }
     }
 }
 
-impl EngineBuilder {
-    fn new() -> Self {
-        Self::default()
-    }
+#[derive(Debug, PartialEq)]
+struct DomContainer(DomAst);
 
-    fn set_initialize(mut self, init: TuiInitialize) -> Self {
-        self.initialize = Some(init);
+#[derive(Debug, PartialEq)]
+pub struct DomAst(HashCell, DomNode);
 
-        self
-    }
+#[derive(Debug, PartialEq)]
+pub enum DomNode {
+    Layer(Box<DomAst>),
+    Vector(Vec<DomAst>),
+    Text(String),
+    NewLine,
+    Ignore,
+}
 
-    fn set_restore(mut self, restore: Restore) -> Self {
-        self.restore = Some(restore);
-
-        self
-    }
-
-    fn set_tick(mut self, tick_ms: u64) -> Self {
-        self.render_tick = Duration::from_millis(tick_ms);
-
-        self
-    }
-
-    fn set_style(mut self, stylesheet: StyleSheet) -> Self {
-        self.style = stylesheet;
-
-        self
-    }
-
-    fn build<R: Widget + Send + Sync + 'static>(self) -> Engine<R> {
-        Engine::<R>::new(self.initialize, self.restore, self.render_tick, self.style)
+impl DomAst {
+    fn new(cell: HashCell, node: DomNode) -> Self {
+        Self(cell, node)
     }
 }
 
-struct Engine<R: Widget> {
-    active_state: Arc<AtomicBool>,
-    initialize: Option<TuiInitialize>,
-    restore: Option<Restore>,
-    previous_root: RwLock<Component>,
-    render_tick: Duration,
-    style: StyleSheet,
-    phantom: PhantomData<R>,
+fn parse_layer(original_component: Component) -> DomContainer {
+    let root_hash = original_component.gen_hash();
+    let expanded_root = original_component.render();
+
+    let ast = DomAst::new(
+        root_hash,
+        DomNode::Layer(Box::new(parse_component(expanded_root))),
+    );
+
+    DomContainer(ast)
 }
 
-impl<R: Widget + Sync + Send + 'static> Engine<R> {
-    fn new(
-        initialize: Option<TuiInitialize>,
-        restore: Option<Restore>,
-        render_tick: Duration,
-        style: StyleSheet,
-    ) -> Self {
-        Self {
-            active_state: Arc::new(AtomicBool::new(true)),
-            initialize,
-            restore,
-            previous_root: RwLock::new(mk!(<R>)),
-            render_tick,
-            style,
-            phantom: PhantomData,
-        }
+fn parse_component(cpnt: Component) -> DomAst {
+    let cell = cpnt.gen_hash();
+
+    if let Some(dom) = cpnt.to_dom_node() {
+        return DomAst::new(cell, dom);
     }
 
-    fn render_start(&self) -> io::Result<()> {
-        if let Some(ref initialize) = self.initialize {
-            execute!(io::stdout(), initialize)?;
-        }
-
-        if self.active_state.load(Ordering::SeqCst) {
-            return Ok(());
-        }
-
-        self.start_thread();
-
-        Ok(())
-    }
-
-    fn start_thread(&self) {
-        let state = self.active_state.clone();
-        let tick = self.render_tick;
-
-        thread::spawn(move || {
-            while state.load(Ordering::SeqCst) {
-                let start = Instant::now();
-
-                let elapsed = start.elapsed();
-
-                if elapsed < tick {
-                    thread::sleep(tick - elapsed);
-                }
-            }
-        });
-    }
-
-    fn render_end(&self) -> io::Result<()> {
-        self.active_state.store(false, Ordering::SeqCst);
-
-        match self.restore {
-            Some(ref restore) => execute!(io::stdout(), restore),
-            None => Ok(()),
-        }
-    }
-
-    fn render(&self, component: Component) {
-        unimplemented!()
-    }
-}
-
-#[test]
-fn test() {
-    use std::time::Duration;
-    use style::Style;
-
-    #[derive(Hash)]
-    struct Root;
-
-    impl Widget for Root {
-        type Prop = ContainerProp;
-
-        fn make(_prop: Self::Prop) -> Self {
-            Self
-        }
-
-        fn render(&self, _children: &[Component]) -> Component {
-            mk!(<Text, { v={"Hello, World!".to_string()} }>)
-        }
-    }
-
-    let initialize = TuiInitialize::new()
-        .enable_raw_mode()
-        .enter_alternate()
-        .hide_cursor()
-        .disable_line_wrap();
-
-    let sheet = sheet!(
-        .text {
-            display: inline_flex;
-        }
-        .p {}
+    DomAst::new(
+        cell,
+        DomNode::Layer(Box::new(parse_component(cpnt.render()))),
     )
-    .expect("Sheet parsing failed");
-
-    let engine = EngineBuilder::new()
-        .set_tick(60)
-        .set_style(sheet)
-        .set_initialize(initialize)
-        .set_restore(Restore::all())
-        .build::<Root>();
-
-    engine.render_start().ok();
-
-    /* thread::sleep(Duration::from_millis(3000)); */
-
-    engine.render_end().ok();
 }
