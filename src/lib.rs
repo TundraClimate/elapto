@@ -1,5 +1,5 @@
-#![warn(missing_docs)]
 #![allow(unused)]
+#![warn(missing_docs, unused_imports)]
 
 //! The layer based TUI rendering library.
 //!
