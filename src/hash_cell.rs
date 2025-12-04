@@ -2,10 +2,12 @@ use std::fmt::{Debug, Write};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+/// A struct for make it clear that it has been hashed.
 pub struct HashCell(u64);
 
 impl HashCell {
     #[inline]
+    /// Create new hash.
     pub fn new<H: Hash>(obj: H) -> Self {
         let mut hasher = DefaultHasher::new();
 
@@ -15,6 +17,7 @@ impl HashCell {
     }
 
     #[inline]
+    /// Combines hashes to Self with other.
     pub fn combine<H: Hash>(self, other: H) -> Self {
         let mut hasher = DefaultHasher::new();
 

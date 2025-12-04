@@ -1,4 +1,4 @@
-/* #![warn(missing_docs)] */
+#![warn(missing_docs)]
 #![allow(unused)]
 
 //! The layer based TUI rendering library.
@@ -10,40 +10,57 @@ mod hash_cell;
 mod style;
 mod tui;
 
-use std::fmt::{Debug, Write};
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub use elapto_macros::{mk, widget};
 pub use hash_cell::HashCell;
 
+/// Create new [Component] from literals with parser.
+pub use elapto_macros::mk;
+
+/// Applies of WidgetInfo for target.
+pub use elapto_macros::widget;
+
 #[derive(Hash, Clone)]
+/// An identfier of Component.
 pub struct Identifier {
+    /// The ID string.
     pub id: String,
 }
 
 #[derive(Hash, Clone)]
+/// A class ident of Component.
 pub struct Class {
+    /// The class string.
     pub class: String,
 }
 
+/// A trait that implement for rendering.
 pub trait Widget: WidgetInfo {
+    /// An implment for rendering.
     fn render(&self, children: Vec<Component>) -> Component;
 
+    /// Generate rendering node.
     fn to_dom(&self) -> Option<DomNode> {
         None
     }
 }
 
+/// A trait that get Widget infomation.
 pub trait WidgetInfo {
+    /// Get name of widget type.
     fn type_name(&self) -> &'static str;
 
+    /// Get list of key-value properties.
     fn properties(&self) -> Vec<(&str, String)>;
 
+    /// Generate a hash by widget.
     fn gen_hash(&self) -> HashCell;
 }
 
 #[derive(Clone, Hash)]
+/// An extra properties.
 pub struct SubProperties {
     id: Option<Identifier>,
     class: Option<Class>,
@@ -51,24 +68,28 @@ pub struct SubProperties {
 }
 
 #[derive(Clone)]
+/// A widget wrapper with [SubProperties].
 pub struct Component {
     widget: Arc<dyn Widget>,
     sub_props: SubProperties,
 }
 
 impl SubProperties {
+    /// Appends id for Self.
     pub fn with_id<T: Into<Identifier>>(mut self, id: T) -> Self {
         self.id = Some(id.into());
 
         self
     }
 
+    /// Appends class for Self.
     pub fn with_class<T: Into<Class>>(mut self, class: T) -> Self {
         self.class = Some(class.into());
 
         self
     }
 
+    /// Appends children for Self.
     pub fn with_children(mut self, children: Vec<Component>) -> Self {
         self.children = children;
 
@@ -77,6 +98,7 @@ impl SubProperties {
 }
 
 impl Component {
+    /// Create new Component with a widget.
     pub fn new<W: Widget + 'static>(widget: W) -> Self {
         Self {
             widget: Arc::new(widget),
@@ -88,6 +110,7 @@ impl Component {
         }
     }
 
+    /// Appends a [SubProperties] for Self.
     pub fn with_sub_props<F: FnOnce(SubProperties) -> SubProperties>(mut self, f: F) -> Self {
         self.sub_props = f(self.sub_props);
 
@@ -165,7 +188,9 @@ impl PartialEq for Component {
     }
 }
 
+/// A trait that needs implement for expand to Component.
 pub trait Expand {
+    /// Expands Self to a Component.
     fn expand(self) -> Component;
 }
 
@@ -234,6 +259,7 @@ impl_expand_to_string!(
 impl_expand_iter!(Vec<Component>);
 
 #[widget(default)]
+/// A widget that only has children.
 pub struct Fragment {
     pub children: Vec<Component>,
 }
@@ -258,6 +284,7 @@ impl Widget for Fragment {
 }
 
 impl Fragment {
+    /// Create new Fragment from children.
     pub fn new(children: Vec<Component>) -> Self {
         Self { children }
     }
@@ -268,6 +295,7 @@ impl Fragment {
 }
 
 #[widget(default)]
+/// A termination widget with text.
 pub struct Text {
     pub value: String,
 }
@@ -283,6 +311,7 @@ impl Widget for Text {
 }
 
 impl Text {
+    /// Create new Text from strings.
     pub fn new<S: ToString>(value: S) -> Self {
         Self {
             value: value.to_string(),
@@ -294,14 +323,25 @@ impl Text {
 struct DomContainer(DomAst);
 
 #[derive(Debug, PartialEq)]
+/// A dom node with hash.
 pub struct DomAst(HashCell, DomNode);
 
 #[derive(Debug, PartialEq)]
+/// A node variants.
 pub enum DomNode {
+    /// Include single-node.
     Layer(Box<DomAst>),
+
+    /// Include multiple-node.
     Vector(Vec<DomAst>),
+
+    /// Include text.
     Text(String),
+
+    /// Goto new line within same layer.
     NewLine,
+
+    /// This node is ignored.
     Ignore,
 }
 

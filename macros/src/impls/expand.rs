@@ -199,6 +199,7 @@ pub(crate) fn expand_widget_struct(init: WidgetInitializer, wd: WidgetStruct) ->
     let item = wd.expand();
 
     quote! {
+        #[allow(missing_docs)]
         #init
         #item
     }
