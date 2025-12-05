@@ -10,9 +10,10 @@ mod hash_cell;
 mod style;
 mod tui;
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 pub use hash_cell::HashCell;
 
@@ -411,7 +412,78 @@ impl Debug for Rect {
     }
 }
 
-struct CanvasAllocator {}
+struct Canvas {
+    rect: Rect,
+}
+
+impl Canvas {
+    fn new(rect: Rect) -> Self {
+        Self { rect }
+    }
+}
+
+struct Layer {
+    mem: Vec<Arc<Canvas>>,
+}
+
+impl Layer {
+    fn new() -> Self {
+        Self { mem: vec![] }
+    }
+
+    fn allocate(&mut self, rect: Rect) -> Option<Arc<Canvas>> {
+        let is_conflict_canvas = self.mem.iter().all(|canvas| !canvas.rect.is_conflict(rect));
+
+        is_conflict_canvas.then_some({
+            let cell = Arc::new(Canvas::new(rect));
+
+            self.mem.push(cell.clone());
+
+            cell
+        })
+    }
+
+    fn free(&mut self, rect: Rect) {
+        self.mem.retain(|canvas| !canvas.rect.is_conflict(rect));
+    }
+}
+
+struct CanvasAllocator {
+    mems: RwLock<HashMap<usize, Layer>>,
+}
+
+impl CanvasAllocator {
+    fn new() -> Self {
+        Self {
+            mems: RwLock::new(HashMap::new()),
+        }
+    }
+
+    fn allocate(&self, z_index: usize, rect: Rect) -> Option<Arc<Canvas>> {
+        let mems = &mut self.mems.write().unwrap();
+
+        match mems.get_mut(&z_index) {
+            Some(layer) => layer.allocate(rect),
+            None => {
+                let mut layer = Layer::new();
+
+                let allocd = layer.allocate(rect);
+
+                mems.insert(z_index, layer);
+
+                allocd
+            }
+        }
+    }
+
+    fn free(&self, z_index: usize, rect: Rect) {
+        let mems = &mut self.mems.write().unwrap();
+
+        if let Some(layer) = mems.get_mut(&z_index) {
+            layer.free(rect);
+        }
+    }
+}
 
 struct Engine {}
 
