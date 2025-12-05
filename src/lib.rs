@@ -375,3 +375,11 @@ fn parse_component(cpnt: Component) -> DomAst {
         DomNode::Layer(Box::new(parse_component(cpnt.render()))),
     )
 }
+
+struct Rect {}
+
+struct CanvasAllocator {}
+
+struct Engine {}
+
+fn draw() {}
