@@ -376,7 +376,40 @@ fn parse_component(cpnt: Component) -> DomAst {
     )
 }
 
-struct Rect {}
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Rect {
+    start_point: (u16, u16),
+    end_point: (u16, u16),
+}
+
+impl Rect {
+    fn new(p1: (u16, u16), p2: (u16, u16)) -> Self {
+        Self {
+            start_point: (p1.0.min(p2.0), p1.1.min(p2.1)),
+            end_point: (p1.0.max(p2.0), p1.1.max(p2.1)),
+        }
+    }
+
+    fn point(cols: u16, rows: u16) -> Self {
+        Self::new((cols, rows), (cols, rows))
+    }
+
+    fn is_conflict(&self, other: Self) -> bool {
+        let cols_range = self.start_point.0..=self.end_point.0;
+        let rows_range = self.start_point.1..=self.end_point.1;
+
+        cols_range.contains(&other.start_point.0)
+            || cols_range.contains(&other.end_point.0)
+            || rows_range.contains(&other.start_point.1)
+            || rows_range.contains(&other.end_point.1)
+    }
+}
+
+impl Debug for Rect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Rect({:?}, {:?})", self.start_point, self.end_point)
+    }
+}
 
 struct CanvasAllocator {}
 
