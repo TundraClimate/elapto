@@ -10,7 +10,6 @@ mod hash_cell;
 mod style;
 mod tui;
 
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, RwLock};
@@ -502,68 +501,46 @@ impl Canvas {
 }
 
 struct Layer {
-    mem: Vec<Arc<Canvas>>,
+    z_index: usize,
+    canvas: Arc<Canvas>,
 }
 
 impl Layer {
-    fn new() -> Self {
-        Self { mem: vec![] }
-    }
-
-    fn allocate(&mut self, shape: Shape) -> Option<Arc<Canvas>> {
-        let is_conflict_canvas = self
-            .mem
-            .iter()
-            .all(|canvas| !canvas.shape.is_conflict(shape));
-
-        is_conflict_canvas.then_some({
-            let cell = Arc::new(Canvas::new(shape));
-
-            self.mem.push(cell.clone());
-
-            cell
-        })
-    }
-
-    fn free(&mut self, shape: Shape) {
-        self.mem.retain(|canvas| !canvas.shape.is_conflict(shape));
+    fn new(z_index: usize, canvas: Arc<Canvas>) -> Self {
+        Self { z_index, canvas }
     }
 }
 
 struct CanvasAllocator {
-    mems: RwLock<HashMap<usize, Layer>>,
+    mem: RwLock<Vec<Layer>>,
 }
 
 impl CanvasAllocator {
     fn new() -> Self {
         Self {
-            mems: RwLock::new(HashMap::new()),
+            mem: RwLock::new(vec![]),
         }
     }
 
     fn allocate(&self, z_index: usize, shape: Shape) -> Option<Arc<Canvas>> {
-        let mems = &mut self.mems.write().unwrap();
+        let mems = &mut self.mem.write().unwrap();
 
-        match mems.get_mut(&z_index) {
-            Some(layer) => layer.allocate(shape),
-            None => {
-                let mut layer = Layer::new();
+        mems.iter()
+            .filter(|layer| layer.z_index == z_index)
+            .all(|layer| !layer.canvas.shape.is_conflict(shape))
+            .then_some({
+                let canvas = Arc::new(Canvas::new(shape));
 
-                let allocd = layer.allocate(shape);
+                mems.push(Layer::new(z_index, canvas.clone()));
 
-                mems.insert(z_index, layer);
-
-                allocd
-            }
-        }
+                canvas
+            })
     }
 
     fn free(&self, z_index: usize, shape: Shape) {
-        let mems = &mut self.mems.write().unwrap();
+        let mems = &mut self.mem.write().unwrap();
 
-        if let Some(layer) = mems.get_mut(&z_index) {
-            layer.free(shape);
-        }
+        mems.retain(|layer| layer.z_index != z_index || !layer.canvas.shape.is_conflict(shape))
     }
 }
 
