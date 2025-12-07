@@ -412,6 +412,10 @@ impl Shape {
         })
     }
 
+    fn is_conflict(&self, other: Self) -> bool {
+        self.into_rect().is_conflict(other.into_rect())
+    }
+
     fn into_rect(self) -> Rect {
         match self {
             Self::Rect(rect) => rect,
@@ -488,12 +492,12 @@ impl Debug for Line {
 }
 
 struct Canvas {
-    rect: Rect,
+    shape: Shape,
 }
 
 impl Canvas {
-    fn new(rect: Rect) -> Self {
-        Self { rect }
+    fn new(shape: Shape) -> Self {
+        Self { shape }
     }
 }
 
@@ -510,10 +514,10 @@ impl Layer {
         let is_conflict_canvas = self
             .mem
             .iter()
-            .all(|canvas| !canvas.rect.is_conflict(shape.into_rect()));
+            .all(|canvas| !canvas.shape.is_conflict(shape));
 
         is_conflict_canvas.then_some({
-            let cell = Arc::new(Canvas::new(shape.into_rect()));
+            let cell = Arc::new(Canvas::new(shape));
 
             self.mem.push(cell.clone());
 
@@ -522,8 +526,7 @@ impl Layer {
     }
 
     fn free(&mut self, shape: Shape) {
-        self.mem
-            .retain(|canvas| !canvas.rect.is_conflict(shape.into_rect()));
+        self.mem.retain(|canvas| !canvas.shape.is_conflict(shape));
     }
 }
 
