@@ -378,37 +378,112 @@ fn parse_component(cpnt: Component) -> DomAst {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct Rect {
-    start_point: (u16, u16),
-    end_point: (u16, u16),
+enum Shape {
+    Rect(Rect),
+    Point(Point),
+    Line(Line),
 }
 
-impl Rect {
-    fn new(p1: (u16, u16), p2: (u16, u16)) -> Self {
-        Self {
-            start_point: (p1.0.min(p2.0), p1.1.min(p2.1)),
-            end_point: (p1.0.max(p2.0), p1.1.max(p2.1)),
-        }
+impl Shape {
+    fn rect(p1: (u16, u16), p2: (u16, u16)) -> Self {
+        Self::Rect(Rect {
+            tl: Point {
+                cols: p1.0.min(p2.0),
+                rows: p1.1.min(p2.1),
+            },
+            br: Point {
+                cols: p1.0.max(p2.0),
+                rows: p1.1.max(p2.1),
+            },
+        })
     }
 
     fn point(cols: u16, rows: u16) -> Self {
-        Self::new((cols, rows), (cols, rows))
+        Self::Point(Point { cols, rows })
     }
 
-    fn is_conflict(&self, other: Self) -> bool {
-        let cols_range = self.start_point.0..=self.end_point.0;
-        let rows_range = self.start_point.1..=self.end_point.1;
+    fn line(cols: u16, rows: u16, width: u16) -> Self {
+        Self::Line(Line {
+            begin: Point { cols, rows },
+            end: Point {
+                cols: cols + (width.max(1) - 1),
+                rows,
+            },
+        })
+    }
 
-        cols_range.contains(&other.start_point.0)
-            || cols_range.contains(&other.end_point.0)
-            || rows_range.contains(&other.start_point.1)
-            || rows_range.contains(&other.end_point.1)
+    fn into_rect(self) -> Rect {
+        match self {
+            Self::Rect(rect) => rect,
+            Self::Point(pos) => pos.into(),
+            Self::Line(line) => line.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Rect {
+    tl: Point,
+    br: Point,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Point {
+    cols: u16,
+    rows: u16,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Line {
+    begin: Point,
+    end: Point,
+}
+
+impl Rect {
+    fn is_conflict(&self, other: Self) -> bool {
+        let cols_range = self.tl.cols..=self.br.cols;
+        let rows_range = self.tl.rows..=self.br.rows;
+
+        cols_range.contains(&other.tl.cols)
+            || cols_range.contains(&other.br.cols)
+            || rows_range.contains(&other.tl.rows)
+            || rows_range.contains(&other.br.rows)
+    }
+}
+
+impl From<Point> for Rect {
+    fn from(value: Point) -> Self {
+        Rect {
+            tl: value,
+            br: value,
+        }
+    }
+}
+
+impl From<Line> for Rect {
+    fn from(value: Line) -> Self {
+        Rect {
+            tl: value.begin,
+            br: value.end,
+        }
     }
 }
 
 impl Debug for Rect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Rect({:?}, {:?})", self.start_point, self.end_point)
+        write!(f, "Rect({:?}, {:?})", self.tl, self.br)
+    }
+}
+
+impl Debug for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.cols, self.rows)
+    }
+}
+
+impl Debug for Line {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Line({:?}, {:?})", self.begin, self.end)
     }
 }
 
@@ -431,11 +506,14 @@ impl Layer {
         Self { mem: vec![] }
     }
 
-    fn allocate(&mut self, rect: Rect) -> Option<Arc<Canvas>> {
-        let is_conflict_canvas = self.mem.iter().all(|canvas| !canvas.rect.is_conflict(rect));
+    fn allocate(&mut self, shape: Shape) -> Option<Arc<Canvas>> {
+        let is_conflict_canvas = self
+            .mem
+            .iter()
+            .all(|canvas| !canvas.rect.is_conflict(shape.into_rect()));
 
         is_conflict_canvas.then_some({
-            let cell = Arc::new(Canvas::new(rect));
+            let cell = Arc::new(Canvas::new(shape.into_rect()));
 
             self.mem.push(cell.clone());
 
@@ -443,8 +521,9 @@ impl Layer {
         })
     }
 
-    fn free(&mut self, rect: Rect) {
-        self.mem.retain(|canvas| !canvas.rect.is_conflict(rect));
+    fn free(&mut self, shape: Shape) {
+        self.mem
+            .retain(|canvas| !canvas.rect.is_conflict(shape.into_rect()));
     }
 }
 
@@ -459,15 +538,15 @@ impl CanvasAllocator {
         }
     }
 
-    fn allocate(&self, z_index: usize, rect: Rect) -> Option<Arc<Canvas>> {
+    fn allocate(&self, z_index: usize, shape: Shape) -> Option<Arc<Canvas>> {
         let mems = &mut self.mems.write().unwrap();
 
         match mems.get_mut(&z_index) {
-            Some(layer) => layer.allocate(rect),
+            Some(layer) => layer.allocate(shape),
             None => {
                 let mut layer = Layer::new();
 
-                let allocd = layer.allocate(rect);
+                let allocd = layer.allocate(shape);
 
                 mems.insert(z_index, layer);
 
@@ -476,11 +555,11 @@ impl CanvasAllocator {
         }
     }
 
-    fn free(&self, z_index: usize, rect: Rect) {
+    fn free(&self, z_index: usize, shape: Shape) {
         let mems = &mut self.mems.write().unwrap();
 
         if let Some(layer) = mems.get_mut(&z_index) {
-            layer.free(rect);
+            layer.free(shape);
         }
     }
 }
