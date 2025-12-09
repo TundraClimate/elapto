@@ -10,6 +10,7 @@ mod hash_cell;
 mod style;
 mod tui;
 
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, RwLock};
@@ -530,18 +531,29 @@ impl Layer {
 }
 
 struct CanvasAllocator {
+    indexes: RwLock<BTreeSet<usize>>,
     mem: RwLock<Vec<Layer>>,
 }
 
 impl CanvasAllocator {
     fn new() -> Self {
         Self {
+            indexes: RwLock::new(BTreeSet::new()),
             mem: RwLock::new(vec![]),
         }
     }
 
+    fn insert_index(&self, z_index: usize) {
+        self.indexes.write().unwrap().insert(z_index);
+    }
+
+    fn remove_index(&self, z_index: usize) {
+        self.indexes.write().unwrap().remove(&z_index);
+    }
+
     fn reset(&self) {
         self.mem.write().unwrap().clear();
+        self.indexes.write().unwrap().clear();
     }
 
     fn allocate(&self, z_index: usize, shape: Shape, source: Source) -> Option<Arc<Canvas>> {
@@ -554,6 +566,7 @@ impl CanvasAllocator {
                 let canvas = Arc::new(Canvas::new(shape, source));
 
                 mems.push(Layer::new(z_index, canvas.clone()));
+                self.insert_index(z_index);
 
                 canvas
             })
@@ -562,7 +575,11 @@ impl CanvasAllocator {
     fn free(&self, z_index: usize, source: Source) {
         let mems = &mut self.mem.write().unwrap();
 
-        mems.retain(|layer| layer.z_index != z_index || layer.canvas.source != source)
+        mems.retain(|layer| layer.z_index != z_index || layer.canvas.source != source);
+
+        if !mems.iter().any(|l| l.z_index == z_index) {
+            self.remove_index(z_index);
+        }
     }
 }
 
