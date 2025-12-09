@@ -13,6 +13,7 @@ mod tui;
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
+use std::io;
 use std::sync::{Arc, RwLock};
 
 pub use hash_cell::HashCell;
@@ -508,6 +509,11 @@ struct Source {
     cell: HashCell,
 }
 
+enum DrawCommand {
+    Line(String),
+    Clear { rows: u16, begin: u16, end: u16 },
+}
+
 struct Canvas {
     shape: Shape,
     source: Source,
@@ -516,6 +522,33 @@ struct Canvas {
 impl Canvas {
     fn new(shape: Shape, source: Source) -> Self {
         Self { shape, source }
+    }
+
+    fn draw(&self, cmds: &[DrawCommand]) -> io::Result<()> {
+        let mut lines = 0u16;
+
+        let rect = self.shape.into_rect();
+        let rel_cols = rect.tl.cols;
+        let mut rel_rows = rect.tl.rows;
+        let out_cols = rect.br.cols + 1;
+        let legal_rows = rect.tl.rows..=rect.br.rows;
+
+        for cmd in cmds.iter() {
+            match cmd {
+                DrawCommand::Line(line) if legal_rows.contains(&rel_rows) => {
+                    draw_p((rel_cols, rel_rows), out_cols, line)?;
+
+                    rel_rows += 1;
+                    lines += 1;
+                }
+                DrawCommand::Clear { rows, begin, end } if legal_rows.contains(rows) => {
+                    draw_v(*rows, *begin, *end)?
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -585,4 +618,43 @@ impl CanvasAllocator {
 
 struct Engine {}
 
-fn draw() {}
+fn draw<S: AsRef<str>>(moveto: (u16, u16), text: S) -> io::Result<()> {
+    use crossterm::cursor::MoveTo;
+    use crossterm::execute;
+    use crossterm::style::Print;
+
+    execute!(
+        io::stdout(),
+        MoveTo(moveto.0, moveto.1),
+        Print(text.as_ref())
+    )?;
+
+    Ok(())
+}
+
+fn draw_p(moveto: (u16, u16), out_cols: u16, paragraph: &str) -> io::Result<()> {
+    use unicode_width::UnicodeWidthStr;
+
+    let length = paragraph.width();
+    let out_size = out_cols - moveto.0;
+
+    if out_cols <= moveto.0 {
+        return Ok(());
+    }
+
+    let legal_length = length.min(out_size.into());
+
+    draw(moveto, &paragraph[..legal_length])
+}
+
+fn draw_v(rows: u16, begin: u16, end: u16) -> io::Result<()> {
+    use crossterm::style::ResetColor;
+
+    if end <= begin {
+        return Ok(());
+    }
+
+    let void_text = format!("{}{}", ResetColor, " ".repeat((end - begin).into()));
+
+    draw((begin, rows), void_text)
+}
