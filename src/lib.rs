@@ -472,6 +472,18 @@ impl From<Line> for Rect {
     }
 }
 
+impl Debug for Shape {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let shape: Box<dyn Debug> = match self {
+            Self::Rect(rect) => Box::new(rect),
+            Self::Point(point) => Box::new(point),
+            Self::Line(line) => Box::new(line),
+        };
+
+        write!(f, "{:?}", shape)
+    }
+}
+
 impl Debug for Rect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Rect({:?}, {:?})", self.tl, self.br)
