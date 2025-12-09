@@ -490,13 +490,19 @@ impl Debug for Line {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Source {
+    cell: HashCell,
+}
+
 struct Canvas {
     shape: Shape,
+    source: Source,
 }
 
 impl Canvas {
-    fn new(shape: Shape) -> Self {
-        Self { shape }
+    fn new(shape: Shape, source: Source) -> Self {
+        Self { shape, source }
     }
 }
 
@@ -522,14 +528,14 @@ impl CanvasAllocator {
         }
     }
 
-    fn allocate(&self, z_index: usize, shape: Shape) -> Option<Arc<Canvas>> {
+    fn allocate(&self, z_index: usize, shape: Shape, source: Source) -> Option<Arc<Canvas>> {
         let mems = &mut self.mem.write().unwrap();
 
         mems.iter()
             .filter(|layer| layer.z_index == z_index)
             .all(|layer| !layer.canvas.shape.is_conflict(shape))
             .then_some({
-                let canvas = Arc::new(Canvas::new(shape));
+                let canvas = Arc::new(Canvas::new(shape, source));
 
                 mems.push(Layer::new(z_index, canvas.clone()));
 
@@ -537,10 +543,10 @@ impl CanvasAllocator {
             })
     }
 
-    fn free(&self, z_index: usize, shape: Shape) {
+    fn free(&self, z_index: usize, source: Source) {
         let mems = &mut self.mem.write().unwrap();
 
-        mems.retain(|layer| layer.z_index != z_index || !layer.canvas.shape.is_conflict(shape))
+        mems.retain(|layer| layer.z_index != z_index || layer.canvas.source != source)
     }
 }
 
