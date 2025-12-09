@@ -540,6 +540,10 @@ impl CanvasAllocator {
         }
     }
 
+    fn reset(&self) {
+        self.mem.write().unwrap().clear();
+    }
+
     fn allocate(&self, z_index: usize, shape: Shape, source: Source) -> Option<Arc<Canvas>> {
         let mems = &mut self.mem.write().unwrap();
 
