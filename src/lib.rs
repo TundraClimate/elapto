@@ -446,13 +446,31 @@ struct Line {
 
 impl Rect {
     fn is_conflict(&self, other: Self) -> bool {
-        let cols_range = self.tl.cols..=self.br.cols;
-        let rows_range = self.tl.rows..=self.br.rows;
+        let self_cols_range = self.tl.cols..=self.br.cols;
+        let self_rows_range = self.tl.rows..=self.br.rows;
+        let other_cols_range = other.tl.cols..=other.br.cols;
+        let other_rows_range = other.tl.rows..=other.br.rows;
 
-        cols_range.contains(&other.tl.cols)
-            || cols_range.contains(&other.br.cols)
-            || rows_range.contains(&other.tl.rows)
-            || rows_range.contains(&other.br.rows)
+        let is_surrounded_by_self = self_cols_range.contains(&other.tl.cols)
+            && self_cols_range.contains(&other.br.cols)
+            && self_rows_range.contains(&other.tl.rows)
+            && self_rows_range.contains(&other.br.rows);
+
+        let is_surrounded_by_other = other_cols_range.contains(&self.tl.cols)
+            && other_cols_range.contains(&self.br.cols)
+            && other_rows_range.contains(&self.tl.rows)
+            && other_rows_range.contains(&self.br.rows);
+
+        let is_crossed = !(!self_cols_range.contains(&other.tl.cols)
+            && !self_rows_range.contains(&other.tl.rows)
+            && !self_cols_range.contains(&other.br.cols)
+            && !self_rows_range.contains(&other.br.rows)
+            && !other_cols_range.contains(&self.tl.cols)
+            && !other_rows_range.contains(&self.tl.rows)
+            && !other_cols_range.contains(&self.br.cols)
+            && !other_rows_range.contains(&self.br.rows));
+
+        is_surrounded_by_self || is_surrounded_by_other || is_crossed
     }
 }
 
