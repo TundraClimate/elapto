@@ -10,13 +10,15 @@ mod hash_cell;
 mod style;
 mod tui;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::{Arc, RwLock};
 
 pub use hash_cell::HashCell;
+pub use tui::Restore;
+pub use tui::TuiInitialize;
 
 /// Create new [Component] from literals with parser.
 pub use elapto_macros::mk;
@@ -379,14 +381,14 @@ fn parse_component(cpnt: Component) -> DomAst {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Shape {
+pub enum Shape {
     Rect(Rect),
     Point(Point),
     Line(Line),
 }
 
 impl Shape {
-    fn rect(p1: (u16, u16), p2: (u16, u16)) -> Self {
+    pub fn rect(p1: (u16, u16), p2: (u16, u16)) -> Self {
         Self::Rect(Rect {
             tl: Point {
                 cols: p1.0.min(p2.0),
@@ -399,11 +401,11 @@ impl Shape {
         })
     }
 
-    fn point(cols: u16, rows: u16) -> Self {
+    pub fn point(cols: u16, rows: u16) -> Self {
         Self::Point(Point { cols, rows })
     }
 
-    fn line(cols: u16, rows: u16, width: u16) -> Self {
+    pub fn line(cols: u16, rows: u16, width: u16) -> Self {
         Self::Line(Line {
             begin: Point { cols, rows },
             end: Point {
@@ -427,19 +429,19 @@ impl Shape {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct Rect {
+pub struct Rect {
     tl: Point,
     br: Point,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct Point {
+pub struct Point {
     cols: u16,
     rows: u16,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct Line {
+pub struct Line {
     begin: Point,
     end: Point,
 }
@@ -523,16 +525,16 @@ impl Debug for Line {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct Source {
-    cell: HashCell,
+pub struct Source {
+    pub cell: HashCell,
 }
 
-enum DrawCommand {
+pub enum DrawCommand {
     Line(String),
     Clear { rows: u16, begin: u16, end: u16 },
 }
 
-struct Canvas {
+pub struct Canvas {
     shape: Shape,
     source: Source,
 }
@@ -542,7 +544,7 @@ impl Canvas {
         Self { shape, source }
     }
 
-    fn draw(&self, cmds: &[DrawCommand]) -> io::Result<()> {
+    pub fn draw(&self, cmds: &[DrawCommand]) -> io::Result<()> {
         let mut lines = 0u16;
 
         let rect = self.shape.into_rect();
@@ -568,6 +570,130 @@ impl Canvas {
 
         Ok(())
     }
+
+    pub fn draw_with_excludes(&self, cmds: &[DrawCommand], excludes: &[Shape]) -> io::Result<()> {
+        let conflicts = excludes
+            .iter()
+            .filter(|s| s.is_conflict(self.shape))
+            .map(|s| s.into_rect())
+            .collect::<Vec<_>>();
+
+        if conflicts.is_empty() {
+            return self.draw(cmds);
+        }
+
+        let rect = self.shape.into_rect();
+
+        let mut line_exclude: BTreeMap<u16, Vec<u16>> = BTreeMap::new();
+
+        conflicts.iter().for_each(|r| {
+            let tl_cols = r.tl.cols.max(rect.tl.cols);
+            let tl_rows = r.tl.rows.max(rect.tl.rows);
+            let br_cols = r.br.cols.min(rect.br.cols);
+            let br_rows = r.br.rows.min(rect.br.rows);
+
+            for i in tl_rows..=br_rows {
+                match line_exclude.get_mut(&i) {
+                    Some(lines) => lines.extend((tl_cols..=br_cols).collect::<Vec<_>>()),
+                    None => {
+                        line_exclude.insert(i, (tl_cols..=br_cols).collect());
+                    }
+                }
+            }
+        });
+
+        line_exclude.iter_mut().for_each(|(_, mut points)| {
+            points.dedup();
+            points.sort();
+        });
+
+        let excludes = line_exclude
+            .into_iter()
+            .map(|(l, pos)| {
+                let mut start = pos[0];
+                let mut prev = pos[0];
+                let mut res = vec![];
+
+                for &x in &pos[1..] {
+                    if x != prev + 1 {
+                        res.push(start..=prev);
+
+                        start = x;
+                    }
+
+                    prev = x;
+                }
+
+                res.push(start..=prev);
+
+                (l, res)
+            })
+            .collect::<BTreeMap<u16, _>>();
+
+        let mut lines = 0u16;
+        let rel_cols = rect.tl.cols;
+        let mut rel_rows = rect.tl.rows;
+        let out_cols = rect.br.cols + 1;
+        let legal_rows = rect.tl.rows..=rect.br.rows;
+
+        for cmd in cmds.iter() {
+            match cmd {
+                DrawCommand::Line(line) if legal_rows.contains(&rel_rows) => {
+                    match excludes.get(&rel_rows) {
+                        Some(ranges) => {
+                            let mut rel_cols = rel_cols;
+                            let mut line = line.clone();
+
+                            for range in ranges {
+                                let moveto = (rel_cols, rel_rows);
+                                let rel_out_cols = *range.start();
+
+                                draw_p(moveto, rel_out_cols, &line)?;
+
+                                if range.end() >= &out_cols {
+                                    break;
+                                }
+
+                                line.replace_range(
+                                    (rel_cols as usize)..=(*range.end() as usize),
+                                    "",
+                                );
+                                rel_cols = range.end() + 1;
+                            }
+
+                            draw_p((rel_cols, rel_rows), out_cols, &line)?;
+                        }
+                        None => draw_p((rel_cols, rel_rows), out_cols, line)?,
+                    }
+
+                    rel_rows += 1;
+                    lines += 1;
+                }
+                DrawCommand::Clear { rows, begin, end } if legal_rows.contains(rows) => {
+                    match excludes.get(rows) {
+                        Some(ranges) => {
+                            let mut begin = *begin;
+                            let mut inner_end = *end;
+
+                            for range in ranges {
+                                inner_end = *range.start();
+
+                                draw_v(*rows, begin, inner_end)?;
+
+                                begin = range.end() + 1;
+                            }
+
+                            draw_v(*rows, begin, *end)?;
+                        }
+                        None => draw_v(*rows, *begin, *end)?,
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
 }
 
 struct Layer {
@@ -581,13 +707,13 @@ impl Layer {
     }
 }
 
-struct CanvasAllocator {
+pub struct CanvasAllocator {
     indexes: RwLock<BTreeSet<usize>>,
     mem: RwLock<Vec<Layer>>,
 }
 
 impl CanvasAllocator {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             indexes: RwLock::new(BTreeSet::new()),
             mem: RwLock::new(vec![]),
@@ -607,7 +733,7 @@ impl CanvasAllocator {
         self.indexes.write().unwrap().clear();
     }
 
-    fn allocate(&self, z_index: usize, shape: Shape, source: Source) -> Option<Arc<Canvas>> {
+    pub fn allocate(&self, z_index: usize, shape: Shape, source: Source) -> Option<Arc<Canvas>> {
         let mems = &mut self.mem.write().unwrap();
 
         mems.iter()
@@ -623,7 +749,7 @@ impl CanvasAllocator {
             })
     }
 
-    fn free(&self, z_index: usize, source: Source) {
+    pub fn free(&self, z_index: usize, source: Source) {
         let mems = &mut self.mem.write().unwrap();
 
         mems.retain(|layer| layer.z_index != z_index || layer.canvas.source != source);
@@ -653,12 +779,12 @@ fn draw<S: AsRef<str>>(moveto: (u16, u16), text: S) -> io::Result<()> {
 fn draw_p(moveto: (u16, u16), out_cols: u16, paragraph: &str) -> io::Result<()> {
     use unicode_width::UnicodeWidthStr;
 
-    let length = paragraph.width();
-    let out_size = out_cols - moveto.0;
-
     if out_cols <= moveto.0 {
         return Ok(());
     }
+
+    let length = paragraph.width();
+    let out_size = out_cols - moveto.0;
 
     let legal_length = length.min(out_size.into());
 
