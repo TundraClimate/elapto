@@ -1,4 +1,4 @@
-#![allow(unused)]
+#![allow(unused, clippy::new_without_default)]
 #![warn(missing_docs, unused_imports)]
 
 //! The layer based TUI rendering library.
@@ -381,13 +381,20 @@ fn parse_component(cpnt: Component) -> DomAst {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// The enum that includes the available shapes.
 pub enum Shape {
+    /// The rectangle.
     Rect(Rect),
+
+    /// The pointer.
     Point(Point),
+
+    /// The line.
     Line(Line),
 }
 
 impl Shape {
+    /// Create new rectangle.
     pub fn rect(p1: (u16, u16), p2: (u16, u16)) -> Self {
         Self::Rect(Rect {
             tl: Point {
@@ -401,10 +408,12 @@ impl Shape {
         })
     }
 
+    /// Create new pointer.
     pub fn point(cols: u16, rows: u16) -> Self {
         Self::Point(Point { cols, rows })
     }
 
+    /// Create new line from width.
     pub fn line(cols: u16, rows: u16, width: u16) -> Self {
         Self::Line(Line {
             begin: Point { cols, rows },
@@ -429,18 +438,21 @@ impl Shape {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// A struct that represents rectangle area.
 pub struct Rect {
     tl: Point,
     br: Point,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// A struct that represents 1x1 pointer.
 pub struct Point {
     cols: u16,
     rows: u16,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// A struct that represents begin-end line.
 pub struct Line {
     begin: Point,
     end: Point,
@@ -525,15 +537,31 @@ impl Debug for Line {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// A source for compare with prev result.
 pub struct Source {
+    /// inner cell.
     pub cell: HashCell,
 }
 
+/// The enum that represents commands for drawing.
 pub enum DrawCommand {
+    /// Order the line.
     Line(String),
-    Clear { rows: u16, begin: u16, end: u16 },
+
+    /// Order the clear.
+    Clear {
+        /// rows.
+        rows: u16,
+
+        /// begin.
+        begin: u16,
+
+        /// end.
+        end: u16,
+    },
 }
 
+/// A struct that uses by renderer for drawing.
 pub struct Canvas {
     shape: Shape,
     source: Source,
@@ -544,6 +572,7 @@ impl Canvas {
         Self { shape, source }
     }
 
+    /// Executes the draw commands.
     pub fn draw(&self, cmds: &[DrawCommand]) -> io::Result<()> {
         let mut lines = 0u16;
 
@@ -571,6 +600,7 @@ impl Canvas {
         Ok(())
     }
 
+    /// Executes the draw commands with excludes.
     pub fn draw_with_excludes(&self, cmds: &[DrawCommand], excludes: &[Shape]) -> io::Result<()> {
         let conflicts = excludes
             .iter()
@@ -707,12 +737,14 @@ impl Layer {
     }
 }
 
+/// A struct that holding areas for canvas layout.
 pub struct CanvasAllocator {
     indexes: RwLock<BTreeSet<usize>>,
     mem: RwLock<Vec<Layer>>,
 }
 
 impl CanvasAllocator {
+    /// Create new allocator.
     pub fn new() -> Self {
         Self {
             indexes: RwLock::new(BTreeSet::new()),
@@ -733,6 +765,7 @@ impl CanvasAllocator {
         self.indexes.write().unwrap().clear();
     }
 
+    /// Allocate the shape.
     pub fn allocate(&self, z_index: usize, shape: Shape, source: Source) -> Option<Arc<Canvas>> {
         let mems = &mut self.mem.write().unwrap();
 
@@ -749,6 +782,7 @@ impl CanvasAllocator {
             })
     }
 
+    /// Free areas by source.
     pub fn free(&self, z_index: usize, source: Source) {
         let mems = &mut self.mem.write().unwrap();
 
