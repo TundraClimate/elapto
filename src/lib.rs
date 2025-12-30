@@ -15,6 +15,7 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 pub use hash_cell::HashCell;
 pub use tui::Restore;
@@ -794,8 +795,6 @@ impl CanvasAllocator {
     }
 }
 
-struct Engine {}
-
 fn draw<S: AsRef<str>>(moveto: (u16, u16), text: S) -> io::Result<()> {
     use crossterm::cursor::MoveTo;
     use crossterm::execute;
@@ -835,4 +834,47 @@ fn draw_v(rows: u16, begin: u16, end: u16) -> io::Result<()> {
     let void_text = format!("{}{}", ResetColor, " ".repeat((end - begin).into()));
 
     draw((begin, rows), void_text)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// A wrapper struct for tick speed.
+pub struct TickSpeed(Duration);
+
+impl TickSpeed {
+    /// Create new wrapper from milliseconds.
+    pub fn new(tick_ms: u64) -> Self {
+        Self::from(Duration::from_millis(tick_ms))
+    }
+
+    /// Create new wrapper from seconds.
+    pub fn new_secs(tick_secs: u64) -> Self {
+        Self::from(Duration::from_secs(tick_secs))
+    }
+}
+
+impl From<Duration> for TickSpeed {
+    fn from(value: Duration) -> Self {
+        Self(value)
+    }
+}
+
+impl Default for TickSpeed {
+    fn default() -> Self {
+        Self::new(10)
+    }
+}
+
+#[derive(Default)]
+/// A struct of renderer engine.
+pub struct Engine {
+    tick_speed: TickSpeed,
+}
+
+impl Engine {
+    /// Change `tick_speed` to new speed.
+    pub fn tick_speed(mut self, tick_speed: TickSpeed) -> Self {
+        self.tick_speed = tick_speed;
+
+        self
+    }
 }
