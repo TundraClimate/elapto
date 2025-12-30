@@ -13,9 +13,11 @@ mod tui;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::io;
+use std::io::{self, Write};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+
+use crossterm::execute;
 
 pub use hash_cell::HashCell;
 pub use tui::Restore;
@@ -864,16 +866,59 @@ impl Default for TickSpeed {
     }
 }
 
+/// A struct contains what to do when terminal switch.
+pub struct TerminalSwitch {
+    init: TuiInitialize,
+    restore: Restore,
+}
+
+impl TerminalSwitch {
+    /// Create new terminal switch.
+    pub fn new(init: TuiInitialize, restore: Restore) -> Self {
+        Self { init, restore }
+    }
+
+    /// Init terminal writer with initialize switch.
+    pub fn init(&self, writer: &mut impl Write) -> io::Result<()> {
+        execute!(writer, &self.init)
+    }
+
+    /// Restore terminal writer with restore switch.
+    pub fn restore(&self, writer: &mut impl Write) -> io::Result<()> {
+        execute!(writer, &self.restore)
+    }
+}
+
+impl Default for TerminalSwitch {
+    fn default() -> Self {
+        Self::new(
+            TuiInitialize::new()
+                .enter_alternate()
+                .enable_raw_mode()
+                .hide_cursor(),
+            Restore::all(),
+        )
+    }
+}
+
 #[derive(Default)]
 /// A struct of renderer engine.
 pub struct Engine {
     tick_speed: TickSpeed,
+    terminal_switch: TerminalSwitch,
 }
 
 impl Engine {
     /// Change `tick_speed` to new speed.
     pub fn tick_speed(mut self, tick_speed: TickSpeed) -> Self {
         self.tick_speed = tick_speed;
+
+        self
+    }
+
+    /// Change `terminal_switch` to new that.
+    pub fn terminal_switch(mut self, terminal_switch: TerminalSwitch) -> Self {
+        self.terminal_switch = terminal_switch;
 
         self
     }
