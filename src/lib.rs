@@ -14,10 +14,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use crossterm::execute;
+use tokio::time::{self, Instant};
 
 pub use hash_cell::HashCell;
 pub use tui::Restore;
@@ -852,6 +854,10 @@ impl TickSpeed {
     pub fn new_secs(tick_secs: u64) -> Self {
         Self::from(Duration::from_secs(tick_secs))
     }
+
+    fn tick(&self) -> Duration {
+        self.0
+    }
 }
 
 impl From<Duration> for TickSpeed {
@@ -921,5 +927,69 @@ impl Engine {
         self.terminal_switch = terminal_switch;
 
         self
+    }
+
+    fn on_init(&self) {}
+
+    fn on_restore(&self) {}
+
+    /// initialize terminal with `writer`.
+    pub fn init_term(&self, writer: &mut impl Write) {
+        self.terminal_switch.init(writer);
+        self.on_init();
+    }
+
+    /// Restore terminal with `writer`.
+    pub fn restore_term(&self, writer: &mut impl Write) {
+        self.terminal_switch.restore(writer);
+        self.on_restore();
+    }
+
+    fn on_tick(&self) {
+        todo!()
+    }
+
+    /// Start loop by tick.
+    pub async fn update_by_tick(&self, end_trigger: Trigger) {
+        while !end_trigger.reset_trigger() {
+            let instant = Instant::now();
+
+            self.on_tick();
+
+            let elapsed = instant.elapsed();
+            let engine_tick = self.tick_speed.tick();
+
+            if elapsed < engine_tick {
+                time::sleep(engine_tick - elapsed).await;
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+/// A struct for provide an trigger.
+pub struct Trigger {
+    pulled: Arc<AtomicBool>,
+}
+
+impl Trigger {
+    /// Pull trigger.
+    pub fn pull(&self) {
+        self.pulled.store(true, Ordering::SeqCst)
+    }
+
+    /// Reset the pull state, returns `true` if trigger was pulled.
+    pub fn reset_trigger(&self) -> bool {
+        self.pulled
+            .compare_exchange_weak(true, false, Ordering::SeqCst, Ordering::Acquire)
+            .unwrap_or_else(|i| i)
+    }
+}
+
+impl Default for Trigger {
+    fn default() -> Self {
+        Self {
+            pulled: Arc::new(AtomicBool::new(false)),
+        }
     }
 }

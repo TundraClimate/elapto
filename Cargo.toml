@@ -8,6 +8,7 @@ elapto-macros = { version = "0.1.0", path = "macros" }
 
 crossterm = "0.29.0"
 unicode-width = { version = "0.2.2", features = [] }
+tokio = { version = "1.49.0", features = ["full"] }
 
 [workspace]
 members = ["macros"]
