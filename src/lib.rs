@@ -799,6 +799,12 @@ impl CanvasAllocator {
     }
 }
 
+impl Default for CanvasAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn draw<S: AsRef<str>>(moveto: (u16, u16), text: S) -> io::Result<()> {
     use crossterm::cursor::MoveTo;
     use crossterm::execute;
@@ -912,6 +918,7 @@ impl Default for TerminalSwitch {
 pub struct Engine {
     tick_speed: TickSpeed,
     terminal_switch: TerminalSwitch,
+    allocator: CanvasAllocator,
 }
 
 impl Engine {
@@ -945,16 +952,18 @@ impl Engine {
         self.on_restore();
     }
 
-    fn on_tick(&self) {
+    fn on_tick<Root: Widget + Default + 'static>(&self) {
+        let root_container = parse_layer(mk!(<Root />));
+
         todo!()
     }
 
     /// Start loop by tick.
-    pub async fn update_by_tick(&self, end_trigger: Trigger) {
+    pub async fn update_by_tick<Root: Widget + Default + 'static>(&self, end_trigger: Trigger) {
         while !end_trigger.reset_trigger() {
             let instant = Instant::now();
 
-            self.on_tick();
+            self.on_tick::<Root>();
 
             let elapsed = instant.elapsed();
             let engine_tick = self.tick_speed.tick();
